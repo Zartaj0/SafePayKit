@@ -38,6 +38,8 @@ logs, and evidence verification.
   logs, and vault signer identity.
 - Independent conformance proof for quote signatures, receipt signatures, retry
   reuse, policy blocks, and Solana Memo-compatible receipt anchor payloads.
+- Optional devnet anchor command that sends a verified receipt hash as a real
+  Solana Memo transaction.
 
 ## Demo
 
@@ -60,6 +62,15 @@ For a short CLI proof you can show on video:
 npm run demo:proof
 ```
 
+For a real devnet anchor using `DEVNET_PRIVATE_KEY` from `.env`:
+
+```bash
+npm run demo:devnet
+```
+
+This creates a verified local receipt, derives `safepay:v0:<hash>`, sends a
+Solana devnet Memo transaction, and prints the explorer URL.
+
 For the full machine-checkable report:
 
 ```bash
@@ -81,19 +92,14 @@ with one retry reuse, and `conformance` prints `"ok": true`.
 
 - [SPEC.md](SPEC.md): SafePay Spend Control v0 reference semantics.
 - [CONFORMANCE.md](CONFORMANCE.md): what the conformance proof checks.
-- [DEMO.md](DEMO.md): short presentation flow.
-- [ARCHITECTURE.md](ARCHITECTURE.md): component and evidence flow.
-- [ADOPTION.md](ADOPTION.md): how wallets, providers, facilitators, and agent
-  frameworks can reuse the pieces.
-- [DEPLOY.md](DEPLOY.md): optional hosted-dashboard instructions.
 
 ## Scope
 
 - Local reference implementation for x402 / Pay.sh-style flows.
 - The demo uses a mock paid API provider and vault service.
-- Solana Memo-compatible receipt anchors are generated and verified locally.
-- Production deployments should replace demo auth, storage, settlement, and
-  anchoring adapters.
+- `npm run demo:devnet` submits the receipt anchor memo to Solana devnet.
+- Production deployments should replace demo auth, storage, and settlement
+  adapters.
 
 ## Repository Layout
 

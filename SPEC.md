@@ -151,8 +151,8 @@ The payload binds:
 - vault signature
 - settlement time
 
-The current repo prepares and verifies this Solana Memo-compatible payload. It
-does not submit a live devnet or mainnet transaction by default.
+The conformance command prepares and verifies this payload locally. The
+`demo:devnet` command submits the memo to Solana devnet.
 
 ## Minimum Conformance
 

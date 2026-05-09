@@ -23,3 +23,12 @@ It checks:
 Scope: this is local conformance for `SafePay Spend Control v0`. It prepares and
 verifies `safepay:v0:<hash>` Memo payloads, but does not submit live Solana
 transactions by default.
+
+For a real devnet anchor transaction, run:
+
+```bash
+npm run demo:devnet
+```
+
+That command creates a verified local receipt, sends the Memo anchor on Solana
+devnet, and prints an explorer URL.
