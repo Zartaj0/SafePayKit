@@ -14,6 +14,7 @@
     "start": "node scripts/hosted-demo.js",
     "demo": "node scripts/demo.js",
     "demo:proof": "node scripts/demo-proof.js",
+    "demo:devnet": "node scripts/devnet-anchor.js",
     "dev": "node scripts/dev.js",
     "vault": "node packages/vault-service/src/index.js",
     "api": "node examples/paid-api-server/src/server.js",
