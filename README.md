@@ -3,14 +3,14 @@
 **Open safety rails for retry-safe, policy-controlled x402 / Pay.sh-style agent
 API spend on Solana.**
 
-SafePayKit answers one narrow question:
+SafePayKit is a reference implementation for one narrow question:
 
 > How can an autonomous agent pay per request without holding raw spend authority,
 > overspending during retries, or leaving opaque billing records?
 
-It is **not** a wallet, **not** a facilitator, **not** a Pay.sh clone, and **not**
-a production settlement service. It is a local-first reference kit for the safety
-semantics around agent-paid APIs.
+It provides the safety layer around agent-paid API flows: policy checks,
+reservation reuse, retry safety, signed quotes, signed receipts, and audit-ready
+evidence.
 
 ## Why This Exists
 
@@ -87,15 +87,13 @@ with one retry reuse, and `conformance` prints `"ok": true`.
   frameworks can reuse the pieces.
 - [DEPLOY.md](DEPLOY.md): optional hosted-dashboard instructions.
 
-## Honest Scope
+## Scope
 
-- Local-first reference implementation.
-- Mock x402 / Pay.sh-style flow, not a live external facilitator integration.
-- No real USDC settlement adapter yet.
-- Solana Memo-compatible receipt anchors are generated and verified, but not
-  submitted onchain by default.
-- Shared-secret demo auth, not production identity, approvals, or team
-  governance.
+- Local reference implementation for x402 / Pay.sh-style flows.
+- The demo uses a mock paid API provider and vault service.
+- Solana Memo-compatible receipt anchors are generated and verified locally.
+- Production deployments should replace demo auth, storage, settlement, and
+  anchoring adapters.
 
 ## Repository Layout
 

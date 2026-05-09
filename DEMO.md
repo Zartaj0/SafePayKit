@@ -26,8 +26,8 @@ npm run demo:proof
 
 Opening:
 
-> SafePayKit is not the payment rail. It is the open safety layer around
-> x402 / Pay.sh-style agent spend.
+> SafePayKit is the open safety layer for x402 / Pay.sh-style agent spend:
+> policy-bound reservations, retry-safe settlement, and verifiable receipts.
 
 Key lines:
 
