@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SafePayKit</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">SafePayKit</p>
+          <h1>Retry-safe, policy-controlled spend for agent payments on Solana.</h1>
+          <p class="lede">
+            Open safety rails for x402 / Pay.sh-style API spend: budgets, reservations,
+            allowlists, TTLs, retries, receipts, and auditability.
+          </p>
+        </div>
+        <div class="hero-side">
+          <div class="hero-note">
+            <span class="note-kicker">Submission angle</span>
+            <strong>Not the payment rail. The safety layer around it.</strong>
+            <p>Lead with timeout retry, signed receipts, breaker controls, and now persisted audit state.</p>
+          </div>
+          <div class="hero-actions">
+            <button id="seed-demo" class="primary">Seed Demo Policy</button>
+            <button id="reset-breaker" class="secondary">Reset Breaker</button>
+          </div>
+        </div>
+      </header>
+
+      <section class="grid briefing-grid">
+        <article class="panel">
+          <div class="section-head">
+            <h2>Judge Mode</h2>
+            <p>The fastest route to the wedge.</p>
+          </div>
+          <div id="judge-order" class="judge-grid"></div>
+        </article>
+        <article class="panel">
+          <div class="section-head">
+            <h2>Live Proofs</h2>
+            <p>What the running system proves right now.</p>
+          </div>
+          <div id="proof-strip" class="proof-grid"></div>
+        </article>
+        <article class="panel">
+          <div class="section-head">
+            <h2>Runtime</h2>
+            <p>Trust boundary and persistence status.</p>
+          </div>
+          <div id="storage-summary" class="stat-list"></div>
+        </article>
+      </section>
+
+      <section class="grid top-grid">
+        <article class="panel">
+          <h2>Policy</h2>
+          <div id="policy-summary" class="stat-list"></div>
+        </article>
+        <article class="panel">
+          <h2>Metrics</h2>
+          <div id="metric-summary" class="metric-grid"></div>
+        </article>
+        <article class="panel">
+          <h2>Breaker</h2>
+          <div id="breaker-summary" class="breaker-card"></div>
+        </article>
+      </section>
+
+      <section class="panel">
+        <div class="section-head">
+          <h2>Scenarios</h2>
+          <p>Run the exact flows judges need to see, with the story attached.</p>
+        </div>
+        <div class="scenario-layout">
+          <div class="scenario-grid">
+            <button data-scenario="normal" class="scenario-card">
+              <span class="scenario-tag">Happy path</span>
+              <strong>Normal payment</strong>
+              <span>Reserve, settle once, receive result.</span>
+            </button>
+            <button data-scenario="timeout" class="scenario-card">
+              <span class="scenario-tag">Critical proof</span>
+              <strong>Timeout retry</strong>
+              <span>Retry with the same idempotency key and reuse the reservation.</span>
+            </button>
+            <button data-scenario="price" class="scenario-card">
+              <span class="scenario-tag">Budget rail</span>
+              <strong>Price drift block</strong>
+              <span>Reject a quote above policy before settlement.</span>
+            </button>
+            <button data-scenario="recipient" class="scenario-card">
+              <span class="scenario-tag">Allowlist rail</span>
+              <strong>Recipient block</strong>
+              <span>Reject a rogue recipient.</span>
+            </button>
+            <button data-scenario="route" class="scenario-card">
+              <span class="scenario-tag">Route rail</span>
+              <strong>Route block</strong>
+              <span>Reject a non-allowlisted endpoint.</span>
+            </button>
+            <button data-scenario="breaker" class="scenario-card">
+              <span class="scenario-tag">Anomaly rail</span>
+              <strong>Breaker trip</strong>
+              <span>Escalate repeated blocked attempts into a circuit-breaker response.</span>
+            </button>
+          </div>
+          <aside id="scenario-detail" class="scenario-detail"></aside>
+        </div>
+        <div id="scenario-result" class="result-box" aria-live="polite"></div>
+      </section>
+
+      <section class="grid bottom-grid">
+        <article class="panel">
+          <h2>Reservations</h2>
+          <div id="reservations"></div>
+        </article>
+        <article class="panel">
+          <h2>Receipts</h2>
+          <div id="receipts"></div>
+        </article>
+      </section>
+
+      <section class="grid bottom-grid">
+        <article class="panel">
+          <h2>Blocked Attempts</h2>
+          <div id="blocked-attempts"></div>
+        </article>
+        <article class="panel">
+          <h2>Audit Log</h2>
+          <div id="audit-log"></div>
+        </article>
+      </section>
+    </div>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

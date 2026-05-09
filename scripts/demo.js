@@ -1,0 +1,111 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { startDashboardServer } from "../apps/dashboard/server.js";
+import { startPaidApiServer } from "../examples/paid-api-server/src/server.js";
+import { startVaultServer } from "../packages/vault-service/src/index.js";
+
+const rootDir = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+const adminToken = "demo-admin-token";
+const agentToken = "demo-agent-token";
+const providerToken = "demo-provider-token";
+const vaultPort = Number(process.env.SAFEPAY_VAULT_PORT ?? 4100);
+const apiPort = Number(process.env.SAFEPAY_API_PORT ?? 4200);
+const dashboardPort = Number(process.env.SAFEPAY_DASHBOARD_PORT ?? 4300);
+const storeFile =
+  process.env.SAFEPAY_STORE_FILE ?? path.join(rootDir, "tmp", "safepaykit-demo.json");
+
+function print(message = "") {
+  process.stdout.write(`${message}\n`);
+}
+
+async function postJson(url, payload, headers = {}) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      ...headers
+    },
+    body: JSON.stringify(payload)
+  });
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.code ?? data.message ?? `request_failed_${response.status}`);
+  }
+
+  return data;
+}
+
+const vault = await startVaultServer({
+  port: vaultPort,
+  storeFile,
+  adminToken,
+  agentToken,
+  providerToken
+});
+const api = await startPaidApiServer({
+  port: apiPort,
+  vaultUrl: `http://127.0.0.1:${vault.port}`,
+  providerToken
+});
+const dashboard = await startDashboardServer({
+  port: dashboardPort,
+  vaultUrl: `http://127.0.0.1:${vault.port}`,
+  apiUrl: `http://127.0.0.1:${api.port}`,
+  adminToken,
+  agentToken
+});
+
+const vaultUrl = `http://127.0.0.1:${vault.port}`;
+const apiUrl = `http://127.0.0.1:${api.port}`;
+const dashboardUrl = `http://127.0.0.1:${dashboard.port}`;
+
+try {
+  const provider = await fetch(`${apiUrl}/provider-metadata`).then((response) =>
+    response.json()
+  );
+
+  await postJson(
+    `${vaultUrl}/demo/bootstrap`,
+    {
+      policy: {
+        allowedDomains: [new URL(apiUrl).host],
+        allowedProviderKeys: [provider.providerPublicKey]
+      }
+    },
+    {
+      "x-safepay-admin-token": adminToken
+    }
+  );
+
+  print("");
+  print("SafePayKit presenter demo is ready.");
+  print("");
+  print(`Dashboard: ${dashboardUrl}`);
+  print("");
+  print("Video flow:");
+  print("1. Open the dashboard.");
+  print("2. Run Normal payment.");
+  print("3. Run Timeout retry: same idempotency key, one reservation, one settlement.");
+  print("4. Run Price drift block: unsafe quote blocked before settlement.");
+  print("5. Run Breaker trip: repeated anomalies trip the breaker.");
+  print("");
+  print("Optional terminal proof after the dashboard:");
+  print("npm run demo:proof");
+  print("");
+  print("Press Ctrl+C to stop the demo stack.");
+} catch (error) {
+  print(`Demo setup failed: ${error.message}`);
+  process.exitCode = 1;
+}
+
+function shutdown() {
+  dashboard.server.close(() => {});
+  api.server.close(() => {});
+  vault.server.close(() => {});
+  print("\nSafePayKit demo stopped.");
+  setTimeout(() => process.exit(0), 150);
+}
+
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);

@@ -1,0 +1,30 @@
+{
+  "name": "safepaykit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Open safety and conformance rails for retry-safe, policy-controlled x402-style agent spend on Solana.",
+  "main": "scripts/hosted-demo.js",
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "examples/*"
+  ],
+  "scripts": {
+    "start": "node scripts/hosted-demo.js",
+    "demo": "node scripts/demo.js",
+    "demo:proof": "node scripts/demo-proof.js",
+    "dev": "node scripts/dev.js",
+    "vault": "node packages/vault-service/src/index.js",
+    "api": "node examples/paid-api-server/src/server.js",
+    "dashboard": "node apps/dashboard/server.js",
+    "agent": "node examples/demo-agent/src/index.js",
+    "scenario": "node scripts/run-scenario.js",
+    "conformance": "node scripts/conformance.js",
+    "verify": "node scripts/verify.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
