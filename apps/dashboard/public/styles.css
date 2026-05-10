@@ -130,7 +130,7 @@ h2 {
 .hero-note,
 .detail-card,
 .proof-card,
-.judge-step,
+.flow-step,
 .stat-item,
 .metric-card,
 .list-card,
@@ -207,7 +207,7 @@ button:disabled {
   color: var(--ink);
 }
 
-.demo-status {
+.console-status {
   display: grid;
   gap: 8px;
   padding: 16px;
@@ -216,11 +216,11 @@ button:disabled {
   background: rgba(15, 109, 87, 0.08);
 }
 
-.demo-status strong {
+.console-status strong {
   font-size: 0.95rem;
 }
 
-.demo-status span {
+.console-status span {
   color: var(--muted);
   font-size: 0.9rem;
   line-height: 1.45;
@@ -259,7 +259,7 @@ button:disabled {
   max-width: 32ch;
 }
 
-.judge-grid,
+.flow-grid,
 .proof-grid,
 .stat-list,
 .metric-grid,
@@ -271,7 +271,7 @@ button:disabled {
   margin-top: 16px;
 }
 
-.judge-grid,
+.flow-grid,
 .proof-grid,
 .stat-list,
 .list-stack {
@@ -279,7 +279,7 @@ button:disabled {
   gap: 12px;
 }
 
-.judge-step,
+.flow-step,
 .proof-card,
 .stat-item,
 .metric-card,
@@ -289,12 +289,12 @@ button:disabled {
   padding: 16px 18px;
 }
 
-.judge-step {
+.flow-step {
   position: relative;
   overflow: hidden;
 }
 
-.judge-step::after {
+.flow-step::after {
   content: "";
   position: absolute;
   inset: auto -30px -30px auto;
@@ -304,7 +304,7 @@ button:disabled {
   background: radial-gradient(circle, rgba(15, 109, 87, 0.08), transparent 70%);
 }
 
-.judge-index {
+.flow-index {
   display: inline-flex;
   margin-bottom: 10px;
   color: var(--accent);
@@ -312,7 +312,7 @@ button:disabled {
   letter-spacing: 0.12em;
 }
 
-.judge-step p,
+.flow-step p,
 .proof-card p,
 .detail-card p {
   margin: 10px 0 0;

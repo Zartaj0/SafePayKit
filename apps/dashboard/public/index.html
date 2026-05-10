@@ -11,22 +11,23 @@
       <header class="hero">
         <div class="hero-copy">
           <p class="eyebrow">SafePayKit</p>
-          <h1>Retry-safe, policy-controlled spend for agent payments on Solana.</h1>
+          <h1>Agent spend control for paid API calls.</h1>
           <p class="lede">
-            Open safety rails for x402 / Pay.sh-style API spend: budgets, reservations,
-            allowlists, TTLs, retries, receipts, and auditability.
+            Put SafePayKit between an autonomous agent and paid APIs. It approves
+            safe quotes, reserves budget before retries, blocks policy drift, and
+            produces verifiable receipts.
           </p>
         </div>
         <div class="hero-side">
           <div class="hero-note">
-            <span class="note-kicker">Presenter mode</span>
-            <strong>One run shows the complete safety flow.</strong>
-            <p>Normal payment, timeout retry reuse, price block, breaker trip, and signed receipts.</p>
+            <span class="note-kicker">Live console</span>
+            <strong>Start an agent run and watch the controls fire.</strong>
+            <p>Safe payment, retry reuse, unsafe quote block, breaker response, and signed receipts.</p>
           </div>
-          <div id="demo-status" class="demo-status" aria-live="polite"></div>
+          <div id="console-status" class="console-status" aria-live="polite"></div>
           <div class="hero-actions">
-            <button id="run-full-demo" class="primary">Run Full Demo</button>
-            <button id="seed-demo" class="secondary">Reset Demo</button>
+            <button id="start-agent-run" class="primary">Start Agent Run</button>
+            <button id="reset-console" class="secondary">Reset Console</button>
             <button id="reset-breaker" class="secondary">Reset Breaker</button>
           </div>
         </div>
@@ -35,22 +36,22 @@
       <section class="grid briefing-grid">
         <article class="panel">
           <div class="section-head">
-            <h2>Judge Mode</h2>
-            <p>The fastest route to the wedge.</p>
+            <h2>Payment Flow</h2>
+            <p>What SafePayKit controls for each paid API call.</p>
           </div>
-          <div id="judge-order" class="judge-grid"></div>
+          <div id="flow-steps" class="flow-grid"></div>
         </article>
         <article class="panel">
           <div class="section-head">
-            <h2>Live Proofs</h2>
-            <p>What the running system proves right now.</p>
+            <h2>Safety Checks</h2>
+            <p>The invariants tracked by the vault.</p>
           </div>
           <div id="proof-strip" class="proof-grid"></div>
         </article>
         <article class="panel">
           <div class="section-head">
-            <h2>Runtime</h2>
-            <p>Trust boundary and persistence status.</p>
+            <h2>Vault</h2>
+            <p>Signer boundary and persistence status.</p>
           </div>
           <div id="storage-summary" class="stat-list"></div>
         </article>
@@ -73,39 +74,39 @@
 
       <section class="panel">
         <div class="section-head">
-          <h2>Scenarios</h2>
-          <p>Run the exact flows judges need to see, with the story attached.</p>
+          <h2>Agent Events</h2>
+          <p>Each button sends a paid API event through the SafePayKit vault.</p>
         </div>
         <div class="scenario-layout">
           <div class="scenario-grid">
             <button data-scenario="normal" class="scenario-card">
-              <span class="scenario-tag">Happy path</span>
-              <strong>Normal payment</strong>
-              <span>Reserve, settle once, receive result.</span>
+              <span class="scenario-tag">Allowed</span>
+              <strong>Approve safe call</strong>
+              <span>Reserve budget, settle once, return receipt.</span>
             </button>
             <button data-scenario="timeout" class="scenario-card">
-              <span class="scenario-tag">Critical proof</span>
-              <strong>Timeout retry</strong>
-              <span>Retry with the same idempotency key and reuse the reservation.</span>
+              <span class="scenario-tag">Retry-safe</span>
+              <strong>Reuse on retry</strong>
+              <span>Retry with the same idempotency key; do not create a second spend.</span>
             </button>
             <button data-scenario="price" class="scenario-card">
-              <span class="scenario-tag">Budget rail</span>
-              <strong>Price drift block</strong>
+              <span class="scenario-tag">Blocked</span>
+              <strong>Block expensive quote</strong>
               <span>Reject a quote above policy before settlement.</span>
             </button>
             <button data-scenario="recipient" class="scenario-card">
-              <span class="scenario-tag">Allowlist rail</span>
-              <strong>Recipient block</strong>
+              <span class="scenario-tag">Blocked</span>
+              <strong>Block wrong recipient</strong>
               <span>Reject a rogue recipient.</span>
             </button>
             <button data-scenario="route" class="scenario-card">
-              <span class="scenario-tag">Route rail</span>
-              <strong>Route block</strong>
+              <span class="scenario-tag">Blocked</span>
+              <strong>Block wrong route</strong>
               <span>Reject a non-allowlisted endpoint.</span>
             </button>
             <button data-scenario="breaker" class="scenario-card">
-              <span class="scenario-tag">Anomaly rail</span>
-              <strong>Breaker trip</strong>
+              <span class="scenario-tag">Stop-loss</span>
+              <strong>Trip breaker</strong>
               <span>Escalate repeated blocked attempts into a circuit-breaker response.</span>
             </button>
           </div>

@@ -32,7 +32,7 @@ logs, and evidence verification.
 - Vault service that holds the signer instead of the agent.
 - x402-style client wrapper for `402 Payment Required` retry flows.
 - Paid API mock with provider-signed quotes.
-- Dashboard demo with normal, timeout retry, price block, recipient block, route
+- Product console with normal, timeout retry, price block, recipient block, route
   block, and breaker scenarios.
 - File-backed local persistence for policy, receipts, runs, auth tokens, audit
   logs, and vault signer identity.
@@ -41,15 +41,15 @@ logs, and evidence verification.
 - Optional devnet anchor command that sends a verified receipt hash as a real
   Solana Memo transaction.
 
-## Demo
+## Run Locally
 
-Start the clean presenter demo:
+Start the local product console:
 
 ```bash
 npm run demo
 ```
 
-Open the dashboard URL printed by the command, then click `Run Full Demo`.
+Open the dashboard URL printed by the command, then click `Start Agent Run`.
 
 The button runs:
 
@@ -61,7 +61,7 @@ The button runs:
 The hero status, metrics, receipt list, blocked attempts, and breaker panel update
 live after the click.
 
-For a short CLI proof you can show on video:
+For a short CLI proof:
 
 ```bash
 npm run demo:proof
@@ -101,9 +101,9 @@ with one retry reuse, and `conformance` prints `"ok": true`.
 ## Scope
 
 - Local reference implementation for x402 / Pay.sh-style flows.
-- The demo uses a mock paid API provider and vault service.
+- The local console uses a mock paid API provider and vault service.
 - `npm run demo:devnet` submits the receipt anchor memo to Solana devnet.
-- Production deployments should replace demo auth, storage, and settlement
+- Production deployments should replace local auth, storage, and settlement
   adapters.
 
 ## Repository Layout
@@ -115,7 +115,7 @@ packages/x402-client      safe 402 retry wrapper
 packages/vault-service    signer boundary, auth, settlement, persistence
 examples/paid-api-server  provider-signed paid API mock
 examples/demo-agent       autonomous caller simulation
-apps/dashboard            judge-facing local dashboard
-scripts/                  demo, conformance, scenario, and verification commands
+apps/dashboard            local product console
+scripts/                  local run, conformance, scenario, and verification commands
 tests/                    core, e2e, evidence, and persistence tests
 ```

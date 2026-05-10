@@ -2,39 +2,39 @@ const stateRoute = "/api/state";
 
 const SCENARIOS = {
   normal: {
-    title: "Normal payment",
-    badge: "Happy path",
-    why: "Proves that the vault can authorize and settle a paid API call without the agent ever holding the signing key.",
+    title: "Approve safe call",
+    badge: "Allowed",
+    why: "The provider signs a price quote. The vault checks policy, reserves budget, and authorizes the paid API call without giving the agent a spend key.",
     proofs: [
+      "Provider quote is signed.",
       "Budget is reserved before settlement.",
-      "The paid API receives a short-lived authorization token, not a private key.",
-      "The vault signs the final receipt."
+      "Receipt is signed after the provider settles."
     ]
   },
   timeout: {
-    title: "Timeout retry",
-    badge: "Critical proof",
-    why: "This is the wedge. A timeout occurs after the first authorized request, but the retry reuses the same reservation instead of creating a second spend intent.",
+    title: "Reuse on retry",
+    badge: "Retry-safe",
+    why: "A network timeout happens after authorization. The retry uses the same run and idempotency key, so the vault reuses the existing reservation instead of approving a second spend.",
     proofs: [
-      "The same run and idempotency key map back to one reservation.",
+      "The same run and idempotency key map to one reservation.",
       "The provider settles exactly once.",
-      "The second client attempt safely reuses the first authorization path."
+      "The retry does not create another payment intent."
     ]
   },
   price: {
-    title: "Price drift block",
-    badge: "Budget rail",
-    why: "Shows the product is not just x402 glue. Unsafe quotes are rejected before spend settles.",
+    title: "Block expensive quote",
+    badge: "Blocked",
+    why: "The provider asks for more than the policy allows. The vault rejects the quote before money can move.",
     proofs: [
       "Per-request limit is enforced before payment.",
-      "The block is logged for auditability.",
-      "No receipt is created because no spend is allowed through."
+      "No reservation is created for the unsafe quote.",
+      "The blocked attempt is logged for audit."
     ]
   },
   recipient: {
-    title: "Recipient block",
-    badge: "Allowlist rail",
-    why: "Unsafe recipient drift is blocked at authorization time so spend cannot be redirected to a rogue sink.",
+    title: "Block wrong recipient",
+    badge: "Blocked",
+    why: "The payment recipient changes away from the policy allowlist. The vault stops the request before settlement.",
     proofs: [
       "Recipient must match policy.",
       "The spend never reaches settlement.",
@@ -42,9 +42,9 @@ const SCENARIOS = {
     ]
   },
   route: {
-    title: "Route block",
-    badge: "Route rail",
-    why: "The policy engine does not trust the agent to stay within the intended API surface.",
+    title: "Block wrong route",
+    badge: "Blocked",
+    why: "The agent tries to call a non-allowlisted API route. The vault blocks the request.",
     proofs: [
       "Non-allowlisted routes are blocked.",
       "Blocked attempts increment anomaly tracking.",
@@ -52,9 +52,9 @@ const SCENARIOS = {
     ]
   },
   breaker: {
-    title: "Breaker trip",
-    badge: "Anomaly rail",
-    why: "Repeated bad requests escalate from single blocks into a circuit-breaker response, which is the right trust model for autonomous agents.",
+    title: "Trip breaker",
+    badge: "Stop-loss",
+    why: "Repeated unsafe requests escalate from individual blocks into a breaker state, stopping further autonomous spend attempts.",
     proofs: [
       "Each blocked attempt increments anomaly count.",
       "The breaker trips once the threshold is reached.",
@@ -63,12 +63,12 @@ const SCENARIOS = {
   }
 };
 
-const JUDGE_ORDER = ["normal", "timeout", "price", "breaker"];
+const FLOW_STEPS = ["normal", "timeout", "price", "breaker"];
 
 const appState = {
   selectedScenario: "timeout",
   runningScenario: null,
-  runningFullDemo: false,
+  runningAgentRun: false,
   snapshot: null,
   lastResult: null
 };
@@ -135,12 +135,12 @@ async function requestJson(url, init = {}) {
   return payload;
 }
 
-function renderJudgeOrder() {
-  const host = document.querySelector("#judge-order");
-  host.innerHTML = JUDGE_ORDER.map(
+function renderFlowSteps() {
+  const host = document.querySelector("#flow-steps");
+  host.innerHTML = FLOW_STEPS.map(
     (scenario, index) => `
-      <article class="judge-step">
-        <span class="judge-index">0${index + 1}</span>
+      <article class="flow-step">
+        <span class="flow-index">0${index + 1}</span>
         <strong>${SCENARIOS[scenario].title}</strong>
         <p>${SCENARIOS[scenario].why}</p>
       </article>
@@ -151,13 +151,13 @@ function renderJudgeOrder() {
 function renderProofStrip(snapshot) {
   const host = document.querySelector("#proof-strip");
   if (!snapshot) {
-    host.innerHTML = `<p class="empty">Seed the demo policy to activate the live proof panels.</p>`;
+    host.innerHTML = `<p class="empty">Reset the console to activate the live proof panels.</p>`;
     return;
   }
 
   const cards = [
     {
-      label: "Vault boundary",
+      label: "Spend key boundary",
       value: snapshot.publicKey ? "Signer held by vault" : "Signer unavailable",
       note: "The agent never receives the spend key."
     },
@@ -175,7 +175,7 @@ function renderProofStrip(snapshot) {
       note: "Settlement proof comes from the vault signer."
     },
     {
-      label: "Persistence",
+      label: "Audit trail",
       value:
         snapshot.storage?.mode === "file"
           ? "Restart-safe state enabled"
@@ -201,19 +201,19 @@ function renderProofStrip(snapshot) {
 }
 
 function renderDemoStatus(snapshot) {
-  const host = document.querySelector("#demo-status");
+  const host = document.querySelector("#console-status");
   if (!snapshot?.metrics) {
     host.innerHTML = `
-      <strong>Demo is booting.</strong>
+      <strong>Console is starting.</strong>
       <span>Waiting for vault state.</span>
     `;
     return;
   }
 
-  if (appState.runningFullDemo) {
+  if (appState.runningAgentRun) {
     host.innerHTML = `
-      <strong>Running full demo...</strong>
-      <span>Executing payment, retry reuse, policy block, and breaker scenarios.</span>
+      <strong>Processing agent run...</strong>
+      <span>The vault is checking quotes, reserving budget, reusing retry state, and blocking unsafe spend.</span>
     `;
     return;
   }
@@ -224,12 +224,12 @@ function renderDemoStatus(snapshot) {
 
   host.innerHTML = complete
     ? `
-      <strong>Full demo complete.</strong>
-      <span>${metrics.receiptCount} receipts, ${metrics.reusedCount} retry reuse, ${metrics.blockedCount} blocked attempts, breaker tripped.</span>
+      <strong>Agent run complete.</strong>
+      <span>${metrics.receiptCount} signed receipts, ${metrics.reusedCount} retry reuse, ${metrics.blockedCount} blocked attempts, breaker tripped.</span>
     `
     : `
-      <strong>Ready for recording.</strong>
-      <span>Click Run Full Demo to generate live reservations, receipts, blocks, and breaker state.</span>
+      <strong>Ready.</strong>
+      <span>Start an agent run to create live reservations, receipts, policy blocks, and breaker state.</span>
     `;
 }
 
@@ -262,7 +262,7 @@ function renderStorage(snapshot) {
 function renderPolicy(policy) {
   const host = document.querySelector("#policy-summary");
   if (!policy) {
-    host.innerHTML = `<p class="empty">Seed the demo policy to begin.</p>`;
+    host.innerHTML = `<p class="empty">Reset the console to begin.</p>`;
     return;
   }
 
@@ -298,8 +298,8 @@ function renderMetrics(metrics) {
 
   const cards = [
     ["Reservations", metrics.reservationCount],
-    ["Reuses", metrics.reusedCount],
-    ["Settled", formatMoney(metrics.totalSettledMinor)],
+    ["Retry reuses", metrics.reusedCount],
+    ["Settled spend", formatMoney(metrics.totalSettledMinor)],
     ["Blocked", metrics.blockedCount]
   ];
 
@@ -340,17 +340,17 @@ function renderScenarioCards() {
     const isRunning = scenario === appState.runningScenario;
     button.classList.toggle("active", isActive);
     button.classList.toggle("running", isRunning);
-    button.disabled = Boolean(appState.runningScenario || appState.runningFullDemo);
+    button.disabled = Boolean(appState.runningScenario || appState.runningAgentRun);
   }
 
-  document.querySelector("#run-full-demo").disabled = Boolean(
-    appState.runningScenario || appState.runningFullDemo
+  document.querySelector("#start-agent-run").disabled = Boolean(
+    appState.runningScenario || appState.runningAgentRun
   );
-  document.querySelector("#seed-demo").disabled = Boolean(
-    appState.runningScenario || appState.runningFullDemo
+  document.querySelector("#reset-console").disabled = Boolean(
+    appState.runningScenario || appState.runningAgentRun
   );
   document.querySelector("#reset-breaker").disabled = Boolean(
-    appState.runningScenario || appState.runningFullDemo
+    appState.runningScenario || appState.runningAgentRun
   );
 }
 
@@ -444,14 +444,14 @@ function renderScenarioResult() {
     return;
   }
 
-  if (appState.runningFullDemo) {
+  if (appState.runningAgentRun) {
     host.innerHTML = `
       <article class="result-card">
         <div class="result-head">
           <span class="result-badge pending">Running</span>
-          <strong>Full demo</strong>
+          <strong>Agent run</strong>
         </div>
-        <p>Running normal payment, timeout retry, price block, and breaker trip.</p>
+        <p>SafePayKit is processing a safe paid call, a timeout retry, an expensive quote, and repeated unsafe calls.</p>
       </article>
     `;
     return;
@@ -462,9 +462,9 @@ function renderScenarioResult() {
       <article class="result-card">
         <div class="result-head">
           <span class="result-badge idle">Ready</span>
-          <strong>Select a scenario to see the proof path.</strong>
+          <strong>Start an agent run to see the control path.</strong>
         </div>
-        <p>The guided narrative will appear here, plus raw output for backup during the demo.</p>
+        <p>This panel explains what the vault approved, reused, blocked, or escalated.</p>
       </article>
     `;
     return;
@@ -564,7 +564,7 @@ async function refresh() {
   renderScenarioResult();
 }
 
-async function seedDemo() {
+async function resetConsole() {
   const payload = await requestJson("/api/seed", {
     method: "POST",
     body: JSON.stringify({})
@@ -573,11 +573,11 @@ async function seedDemo() {
     status: "info",
     scenario: appState.selectedScenario,
     payload: {
-      message: "Demo policy reseeded. State reset cleanly for the next walkthrough.",
+      message: "Console reset. Policy, run state, receipts, and breaker counters are clean.",
       facts: [
         "Reservations, receipts, and anomaly counters reset",
         "Persisted store updated immediately",
-        "Ready for normal, timeout, price, then breaker"
+        "Ready for the next agent run"
       ],
       snapshot: payload.snapshot
     }
@@ -618,8 +618,8 @@ async function runScenario(scenario) {
   renderScenarioDetail();
 }
 
-async function runFullDemo() {
-  appState.runningFullDemo = true;
+async function runAgentRun() {
+  appState.runningAgentRun = true;
   appState.selectedScenario = "normal";
   appState.lastResult = null;
   renderScenarioCards();
@@ -627,7 +627,7 @@ async function runFullDemo() {
   renderScenarioResult();
 
   try {
-    await seedDemo();
+    await resetConsole();
 
     const steps = ["normal", "timeout", "price", "breaker"];
     const results = [];
@@ -662,18 +662,18 @@ async function runFullDemo() {
       status: "info",
       scenario: "timeout",
       payload: {
-        message: "Full demo complete. The live panels now show the proof.",
+        message: "Agent run complete. The live panels now show the control decisions.",
         facts: [
-          "Normal payment settled once",
+          "Safe quote approved and settled once",
           "Timeout retry reused one reservation",
-          "Price drift was blocked before settlement",
-          "Repeated unsafe attempts tripped the breaker"
+          "Expensive quote blocked before settlement",
+          "Repeated unsafe calls tripped the breaker"
         ],
         results
       }
     };
   } finally {
-    appState.runningFullDemo = false;
+    appState.runningAgentRun = false;
   }
 
   await refresh();
@@ -701,14 +701,14 @@ async function resetBreaker() {
   await refresh();
 }
 
-renderJudgeOrder();
+renderFlowSteps();
 renderScenarioCards();
 renderScenarioDetail();
 renderScenarioResult();
 
-document.querySelector("#seed-demo").addEventListener("click", seedDemo);
+document.querySelector("#reset-console").addEventListener("click", resetConsole);
 document.querySelector("#reset-breaker").addEventListener("click", resetBreaker);
-document.querySelector("#run-full-demo").addEventListener("click", runFullDemo);
+document.querySelector("#start-agent-run").addEventListener("click", runAgentRun);
 
 for (const button of document.querySelectorAll("[data-scenario]")) {
   button.addEventListener("click", () => {

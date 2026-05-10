@@ -48,8 +48,8 @@ const vaultUrl = `http://127.0.0.1:${vault.port}`;
 const apiUrl = `http://127.0.0.1:${api.port}`;
 
 try {
-  console.log("SafePayKit demo proof");
-  console.log("No real funds move in this local reference demo.\n");
+  console.log("SafePayKit local proof");
+  console.log("No real funds move in this local reference flow.\n");
 
   await fetch(`${vaultUrl}/demo/bootstrap`, {
     method: "POST",
@@ -143,7 +143,7 @@ try {
 
   pass(`verified ${state.receipts.length} receipt evidence bundle(s)`);
   pass(`sample Solana Memo payload ${anchors[0].memo}`);
-  console.log("\nDemo proof complete.");
+  console.log("\nLocal proof complete.");
 } catch (error) {
   fail(error.message);
   process.exitCode = 1;

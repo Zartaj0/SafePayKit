@@ -80,23 +80,23 @@ try {
   );
 
   print("");
-  print("SafePayKit presenter demo is ready.");
+  print("SafePayKit local console is ready.");
   print("");
   print(`Dashboard: ${dashboardUrl}`);
   print(`Fresh state file: ${storeFile}`);
   print("");
-  print("Video flow:");
+  print("Product flow:");
   print("1. Open the dashboard.");
-  print("2. Click Run Full Demo.");
+  print("2. Click Start Agent Run.");
   print("3. Point to the metrics, receipts, blocked attempts, and breaker panels.");
   print("4. Run npm run demo:devnet in a second terminal to show the Solana explorer link.");
   print("");
   print("Optional terminal proof after the dashboard:");
   print("npm run demo:proof");
   print("");
-  print("Press Ctrl+C to stop the demo stack.");
+  print("Press Ctrl+C to stop the local console.");
 } catch (error) {
-  print(`Demo setup failed: ${error.message}`);
+  print(`Console setup failed: ${error.message}`);
   process.exitCode = 1;
 }
 
@@ -104,7 +104,7 @@ function shutdown() {
   dashboard.server.close(() => {});
   api.server.close(() => {});
   vault.server.close(() => {});
-  print("\nSafePayKit demo stopped.");
+  print("\nSafePayKit local console stopped.");
   setTimeout(() => process.exit(0), 150);
 }
 
