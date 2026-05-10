@@ -39,38 +39,64 @@ async function postJson(url, payload, headers = {}) {
   };
 }
 
-function resolveScenario(pathname) {
+function normalizeLiveAmount(value) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) {
+    return 125;
+  }
+  return Math.max(1, Math.min(25_000, Math.round(amount)));
+}
+
+function normalizeLiveText(value, fallback) {
+  const text = String(value ?? "").trim();
+  return text ? text.slice(0, 160) : fallback;
+}
+
+function resolveScenario(pathname, body = {}) {
   switch (pathname) {
+    case "/api/live-research":
+      return {
+        name: body.timeoutFirst ? "live_timeout_retry" : "live_request",
+        amountMinor: normalizeLiveAmount(body.amountMinor),
+        recipient: normalizeLiveText(body.recipient, "merchant_demo_main"),
+        timeoutFirst: Boolean(body.timeoutFirst),
+        resource: normalizeLiveText(body.task, "live agent research request")
+      };
     case "/api/research":
       return {
         name: "normal",
         amountMinor: 125,
-        recipient: "merchant_demo_main"
+        recipient: "merchant_demo_main",
+        resource: "agent research request"
       };
     case "/api/research-timeout":
       return {
         name: "timeout_retry",
         amountMinor: 140,
         recipient: "merchant_demo_main",
-        timeoutFirst: true
+        timeoutFirst: true,
+        resource: "agent research request"
       };
     case "/api/research-premium":
       return {
         name: "price_drift",
         amountMinor: 900,
-        recipient: "merchant_demo_main"
+        recipient: "merchant_demo_main",
+        resource: "agent research request"
       };
     case "/api/research-recipient-drift":
       return {
         name: "recipient_drift",
         amountMinor: 125,
-        recipient: "merchant_rogue_sink"
+        recipient: "merchant_rogue_sink",
+        resource: "agent research request"
       };
     case "/api/exfiltrate":
       return {
         name: "route_not_allowlisted",
         amountMinor: 75,
-        recipient: "merchant_demo_main"
+        recipient: "merchant_demo_main",
+        resource: "agent research request"
       };
     default:
       return null;
@@ -116,17 +142,17 @@ export function startPaidApiServer({
       return;
     }
 
-    const scenario = resolveScenario(url.pathname);
+    const body = await readJson(request);
+    const scenario = resolveScenario(url.pathname, body);
     if (!scenario) {
       sendJson(response, 404, { ok: false, code: "route_not_found" });
       return;
     }
 
-    const body = await readJson(request);
     const quote = buildQuote({
       domain: request.headers.host ?? `127.0.0.1:${port}`,
       route: url.pathname,
-      resource: body.task ?? "agent research request",
+      resource: scenario.resource,
       recipient: scenario.recipient,
       amountMinor: scenario.amountMinor,
       providerId,

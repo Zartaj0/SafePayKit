@@ -8,6 +8,7 @@ export const DEFAULT_POLICY = Object.freeze({
   perRequestLimitMinor: 300,
   allowedDomains: ["127.0.0.1:4200", "localhost:4200"],
   allowedRoutes: [
+    "/api/live-research",
     "/api/research",
     "/api/research-timeout",
     "/api/research-recipient-drift",

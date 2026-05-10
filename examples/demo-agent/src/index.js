@@ -45,13 +45,19 @@ async function runPaidRequest({
   client,
   apiUrl,
   path,
-  body
+  body,
+  idempotencyKey = null
 }) {
+  const headers = {
+    "content-type": "application/json"
+  };
+  if (idempotencyKey) {
+    headers["x-idempotency-key"] = idempotencyKey;
+  }
+
   const response = await client.fetch(`${apiUrl}${path}`, {
     method: "POST",
-    headers: {
-      "content-type": "application/json"
-    },
+    headers,
     body: JSON.stringify(body)
   });
 
@@ -63,6 +69,49 @@ async function runPaidRequest({
   }
 
   return payload;
+}
+
+export async function runAgentRequest({
+  apiUrl = "http://127.0.0.1:4200",
+  vaultUrl = "http://127.0.0.1:4100",
+  path = "/api/live-research",
+  task = "Live agent research request.",
+  amountMinor = 125,
+  recipient = "merchant_demo_main",
+  timeoutFirst = false,
+  runId = "run_live",
+  agentId = "agent_demo",
+  idempotencyKey = null,
+  agentToken = null,
+  requestTimeoutMs = 900
+} = {}) {
+  const client = createSafePayClient({
+    vaultUrl,
+    runId,
+    agentId,
+    agentToken,
+    requestTimeoutMs
+  });
+
+  try {
+    return await runPaidRequest({
+      client,
+      apiUrl,
+      path,
+      idempotencyKey,
+      body: {
+        task,
+        amountMinor,
+        recipient,
+        timeoutFirst
+      }
+    });
+  } catch (error) {
+    if (!error.payload && error.details) {
+      error.payload = error.details;
+    }
+    throw error;
+  }
 }
 
 async function runBreakerScenario({

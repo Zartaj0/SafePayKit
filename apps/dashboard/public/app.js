@@ -69,9 +69,18 @@ const appState = {
   selectedScenario: "timeout",
   runningScenario: null,
   runningAgentRun: false,
+  runningLiveRequest: false,
   snapshot: null,
-  lastResult: null
+  lastResult: null,
+  liveResult: null
 };
+
+function makeClientId(prefix) {
+  const random =
+    globalThis.crypto?.randomUUID?.().replaceAll("-", "").slice(0, 12) ??
+    Math.random().toString(16).slice(2, 14);
+  return `${prefix}_${random}`;
+}
 
 function formatMoney(minor = 0) {
   return new Intl.NumberFormat("en-US", {
@@ -133,6 +142,29 @@ async function requestJson(url, init = {}) {
     throw error;
   }
   return payload;
+}
+
+function populateLiveRequestIds() {
+  document.querySelector("#request-run-id").value = makeClientId("run_live");
+  document.querySelector("#request-idempotency-key").value = makeClientId("idem_live");
+}
+
+function readLiveRequestForm() {
+  return {
+    path: document.querySelector("#request-route").value.trim() || "/api/live-research",
+    amountMinor: Number(document.querySelector("#request-amount").value),
+    recipient:
+      document.querySelector("#request-recipient").value.trim() || "merchant_demo_main",
+    runId: document.querySelector("#request-run-id").value.trim() || makeClientId("run_live"),
+    agentId: "agent_demo",
+    idempotencyKey:
+      document.querySelector("#request-idempotency-key").value.trim() ||
+      makeClientId("idem_live"),
+    timeoutFirst: document.querySelector("#request-timeout").checked,
+    task:
+      document.querySelector("#request-task").value.trim() ||
+      "Live agent research request."
+  };
 }
 
 function renderFlowSteps() {
@@ -352,6 +384,64 @@ function renderScenarioCards() {
   document.querySelector("#reset-breaker").disabled = Boolean(
     appState.runningScenario || appState.runningAgentRun
   );
+
+  const liveForm = document.querySelector("#agent-request-form");
+  for (const control of liveForm.querySelectorAll("input, textarea, button")) {
+    control.disabled = Boolean(appState.runningScenario || appState.runningAgentRun || appState.runningLiveRequest);
+  }
+}
+
+function renderLiveRequestResult() {
+  const host = document.querySelector("#live-request-result");
+
+  if (appState.runningLiveRequest) {
+    host.innerHTML = `
+      <strong>Sending request through SafePayKit...</strong>
+      <span>The provider will return a signed quote, then the vault will approve, reuse, or block it.</span>
+    `;
+    return;
+  }
+
+  if (!appState.liveResult) {
+    host.innerHTML = `
+      <strong>Waiting for an edited request.</strong>
+      <span>Change price to 900 to trigger a budget block, change recipient to merchant_rogue_sink to trigger a recipient block, or check timeout to prove retry reuse.</span>
+    `;
+    return;
+  }
+
+  const rawPayload = appState.liveResult.payload ?? {};
+  const rawJson = escapeHtml(JSON.stringify(rawPayload, null, 2));
+  const isSuccess = appState.liveResult.status === "success";
+  const facts = isSuccess
+    ? [
+        rawPayload.receipt
+          ? `Settled ${formatMoney(rawPayload.receipt.amountMinor)}`
+          : "No settlement returned",
+        rawPayload.reservationId
+          ? `Reservation ${truncateMiddle(rawPayload.reservationId)}`
+          : "No reservation id",
+        rawPayload.receipt?.receiptId
+          ? `Receipt ${truncateMiddle(rawPayload.receipt.receiptId)}`
+          : "No receipt id"
+      ]
+    : [
+        `Reason: ${humanizeCode(rawPayload.code ?? rawPayload.details?.code ?? appState.liveResult.message)}`,
+        `Route: ${appState.liveResult.request?.path ?? "unknown"}`,
+        `Price: ${formatMoney(appState.liveResult.request?.amountMinor ?? 0)}`
+      ];
+
+  host.innerHTML = `
+    <strong>${isSuccess ? "Approved and settled." : "Blocked before settlement."}</strong>
+    <span>${escapeHtml(appState.liveResult.summary)}</span>
+    <div class="live-result-facts">
+      ${facts.map((fact) => `<span>${escapeHtml(fact)}</span>`).join("")}
+    </div>
+    <details class="result-raw">
+      <summary>Raw request and response</summary>
+      <pre>${rawJson}</pre>
+    </details>
+  `;
 }
 
 function renderScenarioDetail() {
@@ -562,6 +652,65 @@ async function refresh() {
   );
   renderList("#audit-log", snapshot.auditLog, renderAuditEvent, "No audit events yet.");
   renderScenarioResult();
+  renderLiveRequestResult();
+}
+
+async function sendLiveAgentRequest(event) {
+  event.preventDefault();
+  const request = readLiveRequestForm();
+  appState.runningLiveRequest = true;
+  appState.liveResult = null;
+  renderScenarioCards();
+  renderLiveRequestResult();
+
+  try {
+    const payload = await requestJson("/api/agent-request", {
+      method: "POST",
+      body: JSON.stringify(request)
+    });
+    appState.liveResult = {
+      status: "success",
+      request,
+      summary:
+        request.timeoutFirst
+          ? "The first response timed out; the retry reused the same reservation and settled once."
+          : "The provider quote matched policy, so the vault authorized and settled it.",
+      payload: {
+        request,
+        response: payload.result,
+        ...payload.result
+      }
+    };
+    appState.lastResult = {
+      status: "success",
+      scenario: "live_request",
+      payload: payload.result
+    };
+  } catch (error) {
+    appState.liveResult = {
+      status: "blocked",
+      request,
+      message: error.message,
+      summary: "The vault rejected this edited request before a payment could settle.",
+      payload: {
+        request,
+        response: error.payload ?? { message: error.message },
+        ...(error.payload ?? {})
+      }
+    };
+    appState.lastResult = {
+      status: "blocked",
+      scenario: "live_request",
+      message: error.message,
+      payload: error.payload ?? { message: error.message }
+    };
+  } finally {
+    appState.runningLiveRequest = false;
+  }
+
+  await refresh();
+  renderScenarioCards();
+  renderLiveRequestResult();
 }
 
 async function resetConsole() {
@@ -569,6 +718,7 @@ async function resetConsole() {
     method: "POST",
     body: JSON.stringify({})
   });
+  appState.liveResult = null;
   appState.lastResult = {
     status: "info",
     scenario: appState.selectedScenario,
@@ -701,11 +851,19 @@ async function resetBreaker() {
   await refresh();
 }
 
+populateLiveRequestIds();
 renderFlowSteps();
 renderScenarioCards();
 renderScenarioDetail();
 renderScenarioResult();
+renderLiveRequestResult();
 
+document.querySelector("#agent-request-form").addEventListener("submit", sendLiveAgentRequest);
+document.querySelector("#randomize-request").addEventListener("click", () => {
+  populateLiveRequestIds();
+  appState.liveResult = null;
+  renderLiveRequestResult();
+});
 document.querySelector("#reset-console").addEventListener("click", resetConsole);
 document.querySelector("#reset-breaker").addEventListener("click", resetBreaker);
 document.querySelector("#start-agent-run").addEventListener("click", runAgentRun);

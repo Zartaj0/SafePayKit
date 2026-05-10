@@ -33,6 +33,48 @@
         </div>
       </header>
 
+      <section class="panel live-request-panel">
+        <div class="section-head">
+          <h2>Live Agent Request</h2>
+          <p>Edit the quote inputs, send a paid API call, and watch the vault approve or block it.</p>
+        </div>
+        <form id="agent-request-form" class="agent-request-form">
+          <label>
+            <span>API route</span>
+            <input id="request-route" name="path" value="/api/live-research" autocomplete="off" />
+          </label>
+          <label>
+            <span>Provider price, cents</span>
+            <input id="request-amount" name="amountMinor" type="number" min="1" step="1" value="125" />
+          </label>
+          <label>
+            <span>Recipient</span>
+            <input id="request-recipient" name="recipient" value="merchant_demo_main" autocomplete="off" />
+          </label>
+          <label>
+            <span>Run ID</span>
+            <input id="request-run-id" name="runId" autocomplete="off" />
+          </label>
+          <label>
+            <span>Idempotency key</span>
+            <input id="request-idempotency-key" name="idempotencyKey" autocomplete="off" />
+          </label>
+          <label class="checkbox-row">
+            <input id="request-timeout" name="timeoutFirst" type="checkbox" />
+            <span>Simulate first-response timeout, then retry with the same key</span>
+          </label>
+          <label class="wide-field">
+            <span>Agent task</span>
+            <textarea id="request-task" name="task" rows="3">Summarize market data for an autonomous research agent.</textarea>
+          </label>
+          <div class="form-actions">
+            <button class="primary" type="submit">Send Agent Request</button>
+            <button id="randomize-request" class="secondary" type="button">Randomize IDs</button>
+          </div>
+        </form>
+        <div id="live-request-result" class="live-request-result" aria-live="polite"></div>
+      </section>
+
       <section class="grid briefing-grid">
         <article class="panel">
           <div class="section-head">
@@ -74,8 +116,8 @@
 
       <section class="panel">
         <div class="section-head">
-          <h2>Agent Events</h2>
-          <p>Each button sends a paid API event through the SafePayKit vault.</p>
+          <h2>Quick Policy Checks</h2>
+          <p>Optional preset requests for fast verification; the live request form above is editable.</p>
         </div>
         <div class="scenario-layout">
           <div class="scenario-grid">

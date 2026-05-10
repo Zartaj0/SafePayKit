@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { runScenario } from "../../examples/demo-agent/src/index.js";
+import { runAgentRequest, runScenario } from "../../examples/demo-agent/src/index.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, "public");
@@ -31,6 +31,21 @@ async function proxyJson(url, init) {
   const response = await fetch(url, init);
   const payload = await response.json();
   return { response, payload };
+}
+
+async function readJson(request) {
+  const chunks = [];
+  for await (const chunk of request) {
+    chunks.push(chunk);
+  }
+  if (chunks.length === 0) {
+    return {};
+  }
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  } catch {
+    return {};
+  }
 }
 
 function withToken(headers, name, value) {
@@ -124,6 +139,35 @@ export function startDashboardServer({
           code: error.payload?.code ?? error.message,
           message: error.message,
           details: error.payload ?? null
+        });
+      }
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/agent-request") {
+      const body = await readJson(request);
+      try {
+        const result = await runAgentRequest({
+          apiUrl,
+          vaultUrl,
+          agentToken,
+          path: body.path,
+          task: body.task,
+          amountMinor: body.amountMinor,
+          recipient: body.recipient,
+          timeoutFirst: body.timeoutFirst,
+          runId: body.runId,
+          agentId: body.agentId,
+          idempotencyKey: body.idempotencyKey,
+          requestTimeoutMs: body.timeoutFirst ? 700 : 900
+        });
+        sendJson(response, 200, { ok: true, result });
+      } catch (error) {
+        sendJson(response, 409, {
+          ok: false,
+          code: error.payload?.code ?? error.details?.code ?? error.message,
+          message: error.message,
+          details: error.payload ?? error.details ?? null
         });
       }
       return;

@@ -32,8 +32,8 @@ logs, and evidence verification.
 - Vault service that holds the signer instead of the agent.
 - x402-style client wrapper for `402 Payment Required` retry flows.
 - Paid API mock with provider-signed quotes.
-- Product console with normal, timeout retry, price block, recipient block, route
-  block, and breaker scenarios.
+- Product console with an editable live agent request form plus normal, timeout
+  retry, price block, recipient block, route block, and breaker checks.
 - File-backed local persistence for policy, receipts, runs, auth tokens, audit
   logs, and vault signer identity.
 - Independent conformance proof for quote signatures, receipt signatures, retry
@@ -49,7 +49,18 @@ Start the local product console:
 npm run demo
 ```
 
-Open the dashboard URL printed by the command, then click `Start Agent Run`.
+Open the dashboard URL printed by the command. The top panel is editable: change
+route, price, recipient, run ID, idempotency key, or timeout behavior, then click
+`Send Agent Request`.
+
+Useful live edits:
+
+- Set price to `125` and recipient to `merchant_demo_main` to approve and settle.
+- Set price to `900` to block above the per-request limit.
+- Set recipient to `merchant_rogue_sink` to block recipient drift.
+- Check timeout and reuse the same idempotency key to prove retry reuse.
+
+Click `Start Agent Run` only when you want the full scripted control sweep.
 
 The button runs:
 

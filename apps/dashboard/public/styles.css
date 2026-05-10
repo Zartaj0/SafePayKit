@@ -246,6 +246,10 @@ button:disabled {
   border-radius: 26px;
 }
 
+.live-request-panel {
+  margin-top: 18px;
+}
+
 .section-head {
   display: flex;
   justify-content: space-between;
@@ -267,8 +271,100 @@ button:disabled {
 #reservations,
 #receipts,
 #blocked-attempts,
-#audit-log {
+#audit-log,
+.agent-request-form,
+.live-request-result {
   margin-top: 16px;
+}
+
+.agent-request-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.agent-request-form label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.agent-request-form input,
+.agent-request-form textarea {
+  width: 100%;
+  border: 1px solid rgba(23, 33, 31, 0.14);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--ink);
+  font: inherit;
+  padding: 12px 13px;
+  outline: none;
+}
+
+.agent-request-form input:focus,
+.agent-request-form textarea:focus {
+  border-color: rgba(15, 109, 87, 0.48);
+  box-shadow: 0 0 0 4px rgba(15, 109, 87, 0.1);
+}
+
+.checkbox-row {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  align-content: center;
+  background: rgba(15, 109, 87, 0.07);
+  border: 1px solid rgba(15, 109, 87, 0.12);
+  border-radius: 18px;
+  padding: 12px 14px;
+}
+
+.checkbox-row input {
+  width: auto;
+}
+
+.wide-field {
+  grid-column: span 2;
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+  align-items: end;
+  flex-wrap: wrap;
+}
+
+.live-request-result {
+  display: grid;
+  gap: 10px;
+  padding: 16px 18px;
+  border: 1px solid rgba(23, 33, 31, 0.08);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.live-request-result strong {
+  display: block;
+}
+
+.live-request-result code {
+  font-family: "SFMono-Regular", "Menlo", monospace;
+  overflow-wrap: anywhere;
+}
+
+.live-result-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.live-result-facts span {
+  display: inline-flex;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(15, 109, 87, 0.1);
+  color: var(--accent-strong);
+  font-size: 0.82rem;
 }
 
 .flow-grid,
@@ -589,8 +685,13 @@ button:disabled {
 @media (max-width: 1080px) {
   .briefing-grid,
   .top-grid,
-  .scenario-layout {
+  .scenario-layout,
+  .agent-request-form {
     grid-template-columns: 1fr;
+  }
+
+  .wide-field {
+    grid-column: auto;
   }
 }
 

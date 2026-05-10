@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { runScenario } from "../examples/demo-agent/src/index.js";
+import { runAgentRequest, runScenario } from "../examples/demo-agent/src/index.js";
 import { startPaidApiServer } from "../examples/paid-api-server/src/server.js";
 import { startVaultServer } from "../packages/vault-service/src/index.js";
 
@@ -84,6 +84,107 @@ test("end-to-end flow settles once, reuses on retry, and blocks bad quotes", asy
     }).then((response) => response.json());
     assert.equal(state.metrics.receiptCount, 2);
     assert.equal(state.metrics.totalSettledMinor, 265);
+    assert.equal(state.metrics.reusedCount, 1);
+    assert.equal(state.metrics.blockedCount, 1);
+  } finally {
+    await new Promise((resolve) => vault.server.close(resolve));
+    await new Promise((resolve) => api.server.close(resolve));
+  }
+});
+
+test("live agent requests evaluate edited quote inputs", async () => {
+  const adminToken = "live-admin-token";
+  const agentToken = "live-agent-token";
+  const providerToken = "live-provider-token";
+  const silentLogger = {
+    log() {}
+  };
+
+  const vault = await startVaultServer({
+    port: 0,
+    adminToken,
+    agentToken,
+    providerToken,
+    logger: silentLogger
+  });
+  const api = await startPaidApiServer({
+    port: 0,
+    vaultUrl: `http://127.0.0.1:${vault.port}`,
+    providerToken,
+    logger: silentLogger
+  });
+
+  const vaultUrl = `http://127.0.0.1:${vault.port}`;
+  const apiUrl = `http://127.0.0.1:${api.port}`;
+
+  try {
+    await fetch(`${vaultUrl}/demo/bootstrap`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-safepay-admin-token": adminToken
+      },
+      body: JSON.stringify({
+        policy: {
+          allowedDomains: [new URL(apiUrl).host],
+          allowedProviderKeys: [api.providerPublicKey]
+        }
+      })
+    });
+
+    const safe = await runAgentRequest({
+      vaultUrl,
+      apiUrl,
+      agentToken,
+      path: "/api/live-research",
+      task: "The operator changed the price field.",
+      amountMinor: 199,
+      recipient: "merchant_demo_main",
+      runId: "run_live_editable",
+      idempotencyKey: "idem_live_safe"
+    });
+    assert.equal(safe.receipt.amountMinor, 199);
+
+    const retry = await runAgentRequest({
+      vaultUrl,
+      apiUrl,
+      agentToken,
+      path: "/api/live-research",
+      task: "The operator checked the timeout box.",
+      amountMinor: 111,
+      recipient: "merchant_demo_main",
+      timeoutFirst: true,
+      runId: "run_live_editable",
+      idempotencyKey: "idem_live_timeout",
+      requestTimeoutMs: 700
+    });
+    assert.equal(retry.receipt.amountMinor, 111);
+
+    let blocked = null;
+    try {
+      await runAgentRequest({
+        vaultUrl,
+        apiUrl,
+        agentToken,
+        path: "/api/live-research",
+        task: "The operator entered an unsafe price.",
+        amountMinor: 901,
+        recipient: "merchant_demo_main",
+        runId: "run_live_editable",
+        idempotencyKey: "idem_live_block"
+      });
+    } catch (error) {
+      blocked = error.payload ?? { code: error.message };
+    }
+    assert.equal(blocked.code, "per_request_limit_exceeded");
+
+    const state = await fetch(`${vaultUrl}/state`, {
+      headers: {
+        "x-safepay-admin-token": adminToken
+      }
+    }).then((response) => response.json());
+    assert.equal(state.metrics.receiptCount, 2);
+    assert.equal(state.metrics.totalSettledMinor, 310);
     assert.equal(state.metrics.reusedCount, 1);
     assert.equal(state.metrics.blockedCount, 1);
   } finally {
