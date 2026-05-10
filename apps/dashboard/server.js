@@ -167,7 +167,8 @@ export function startDashboardServer({
           ok: false,
           code: error.payload?.code ?? error.details?.code ?? error.message,
           message: error.message,
-          details: error.payload ?? error.details ?? null
+          details: error.payload ?? error.details ?? null,
+          trace: error.trace ?? []
         });
       }
       return;

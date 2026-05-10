@@ -72,7 +72,10 @@ test("end-to-end flow settles once, reuses on retry, and blocks bad quotes", asy
         adminToken
       });
     } catch (error) {
-      blocked = error.payload ?? { code: error.message };
+      blocked = {
+        ...(error.payload ?? { code: error.message }),
+        trace: error.trace ?? []
+      };
     }
 
     assert.equal(blocked.code, "per_request_limit_exceeded");
@@ -144,6 +147,9 @@ test("live agent requests evaluate edited quote inputs", async () => {
       idempotencyKey: "idem_live_safe"
     });
     assert.equal(safe.receipt.amountMinor, 199);
+    assert.ok(safe.trace.some((event) => event.type === "provider.quote"));
+    assert.ok(safe.trace.some((event) => event.type === "vault.authorize.approved"));
+    assert.ok(safe.trace.some((event) => event.type === "provider.response"));
 
     const retry = await runAgentRequest({
       vaultUrl,
@@ -159,6 +165,12 @@ test("live agent requests evaluate edited quote inputs", async () => {
       requestTimeoutMs: 700
     });
     assert.equal(retry.receipt.amountMinor, 111);
+    assert.ok(retry.trace.some((event) => event.type === "network.timeout"));
+    assert.ok(
+      retry.trace.some(
+        (event) => event.type === "vault.authorize.approved" && event.decision === "reused"
+      )
+    );
 
     let blocked = null;
     try {
@@ -174,9 +186,13 @@ test("live agent requests evaluate edited quote inputs", async () => {
         idempotencyKey: "idem_live_block"
       });
     } catch (error) {
-      blocked = error.payload ?? { code: error.message };
+      blocked = {
+        ...(error.payload ?? { code: error.message }),
+        trace: error.trace ?? []
+      };
     }
     assert.equal(blocked.code, "per_request_limit_exceeded");
+    assert.ok(blocked.trace.some((event) => event.type === "vault.authorize.blocked"));
 
     const state = await fetch(`${vaultUrl}/state`, {
       headers: {

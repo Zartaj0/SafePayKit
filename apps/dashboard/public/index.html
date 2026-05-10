@@ -8,113 +8,114 @@
   </head>
   <body>
     <div class="shell">
-      <header class="hero">
-        <div class="hero-copy">
+      <header class="topbar">
+        <div>
           <p class="eyebrow">SafePayKit</p>
           <h1>Agent spend control for paid API calls.</h1>
           <p class="lede">
-            Put SafePayKit between an autonomous agent and paid APIs. It approves
-            safe quotes, reserves budget before retries, blocks policy drift, and
-            produces verifiable receipts.
+            Edit a paid API request, send it through the agent, and watch the
+            provider quote, vault decision, retry behavior, receipt, and audit log.
           </p>
         </div>
-        <div class="hero-side">
-          <div class="hero-note">
-            <span class="note-kicker">Live console</span>
-            <strong>Start an agent run and watch the controls fire.</strong>
-            <p>Safe payment, retry reuse, unsafe quote block, breaker response, and signed receipts.</p>
-          </div>
+        <div class="topbar-side">
           <div id="console-status" class="console-status" aria-live="polite"></div>
-          <div class="hero-actions">
-            <button id="start-agent-run" class="primary">Start Agent Run</button>
-            <button id="reset-console" class="secondary">Reset Console</button>
-            <button id="reset-breaker" class="secondary">Reset Breaker</button>
+          <div class="topbar-actions">
+            <button id="reset-console" class="secondary">Reset</button>
+            <button id="reset-breaker" class="secondary">Clear Breaker</button>
           </div>
         </div>
       </header>
 
-      <section class="panel live-request-panel">
-        <div class="section-head">
-          <h2>Live Agent Request</h2>
-          <p>Edit the quote inputs, send a paid API call, and watch the vault approve or block it.</p>
-        </div>
-        <form id="agent-request-form" class="agent-request-form">
-          <label>
-            <span>API route</span>
-            <input id="request-route" name="path" value="/api/live-research" autocomplete="off" />
-          </label>
-          <label>
-            <span>Provider price, cents</span>
-            <input id="request-amount" name="amountMinor" type="number" min="1" step="1" value="125" />
-          </label>
-          <label>
-            <span>Recipient</span>
-            <input id="request-recipient" name="recipient" value="merchant_demo_main" autocomplete="off" />
-          </label>
-          <label>
-            <span>Run ID</span>
-            <input id="request-run-id" name="runId" autocomplete="off" />
-          </label>
-          <label>
-            <span>Idempotency key</span>
-            <input id="request-idempotency-key" name="idempotencyKey" autocomplete="off" />
-          </label>
-          <label class="checkbox-row">
-            <input id="request-timeout" name="timeoutFirst" type="checkbox" />
-            <span>Simulate first-response timeout, then retry with the same key</span>
-          </label>
-          <label class="wide-field">
-            <span>Agent task</span>
-            <textarea id="request-task" name="task" rows="3">Summarize market data for an autonomous research agent.</textarea>
-          </label>
-          <div class="form-actions">
-            <button class="primary" type="submit">Send Agent Request</button>
-            <button id="randomize-request" class="secondary" type="button">Randomize IDs</button>
+      <main class="command-center">
+        <section class="panel live-request-panel">
+          <div class="section-head">
+            <h2>1. Build Request</h2>
+            <p>These fields become the provider quote.</p>
           </div>
-        </form>
-        <div id="live-request-result" class="live-request-result" aria-live="polite"></div>
-      </section>
+          <form id="agent-request-form" class="agent-request-form">
+            <label>
+              <span>Route</span>
+              <input id="request-route" name="path" value="/api/live-research" autocomplete="off" />
+            </label>
+            <label>
+              <span>Price, cents</span>
+              <input id="request-amount" name="amountMinor" type="number" min="1" step="1" value="125" />
+            </label>
+            <label>
+              <span>Recipient</span>
+              <input id="request-recipient" name="recipient" value="merchant_demo_main" autocomplete="off" />
+            </label>
+            <label>
+              <span>Run ID</span>
+              <input id="request-run-id" name="runId" autocomplete="off" />
+            </label>
+            <label>
+              <span>Idempotency key</span>
+              <input id="request-idempotency-key" name="idempotencyKey" autocomplete="off" />
+            </label>
+            <label class="checkbox-row">
+              <input id="request-timeout" name="timeoutFirst" type="checkbox" />
+              <span>Timeout first response, then retry same key</span>
+            </label>
+            <label class="wide-field">
+              <span>Agent task</span>
+              <textarea id="request-task" name="task" rows="2">Summarize market data for an autonomous research agent.</textarea>
+            </label>
+            <div class="form-actions">
+              <button class="primary" type="submit">Send Live Request</button>
+              <button id="randomize-request" class="secondary" type="button">New IDs</button>
+            </div>
+          </form>
+          <div class="demo-presets">
+            <button id="preset-safe" class="ghost" type="button">Safe $1.25</button>
+            <button id="preset-price" class="ghost" type="button">Block $9.00</button>
+            <button id="preset-recipient" class="ghost" type="button">Bad Recipient</button>
+            <button id="preset-timeout" class="ghost" type="button">Retry Timeout</button>
+          </div>
+        </section>
 
-      <section class="grid briefing-grid">
-        <article class="panel">
+        <section class="panel trace-panel">
           <div class="section-head">
-            <h2>Payment Flow</h2>
-            <p>What SafePayKit controls for each paid API call.</p>
+            <h2>2. Live Execution</h2>
+            <p>Actual x402-style events from the agent, provider, and vault.</p>
           </div>
-          <div id="flow-steps" class="flow-grid"></div>
-        </article>
-        <article class="panel">
-          <div class="section-head">
-            <h2>Safety Checks</h2>
-            <p>The invariants tracked by the vault.</p>
-          </div>
-          <div id="proof-strip" class="proof-grid"></div>
-        </article>
-        <article class="panel">
-          <div class="section-head">
-            <h2>Vault</h2>
-            <p>Signer boundary and persistence status.</p>
-          </div>
-          <div id="storage-summary" class="stat-list"></div>
-        </article>
-      </section>
+          <div id="live-request-result" class="live-request-result" aria-live="polite"></div>
+          <div id="execution-trace" class="execution-trace"></div>
+          <button id="start-agent-run" class="secondary full-width">Run Full Sweep</button>
+        </section>
 
-      <section class="grid top-grid">
-        <article class="panel">
-          <h2>Policy</h2>
-          <div id="policy-summary" class="stat-list"></div>
-        </article>
-        <article class="panel">
-          <h2>Metrics</h2>
+        <section class="panel ledger-panel">
+          <div class="section-head">
+            <h2>3. Vault State</h2>
+            <p>Updates after every real authorization.</p>
+          </div>
           <div id="metric-summary" class="metric-grid"></div>
-        </article>
-        <article class="panel">
-          <h2>Breaker</h2>
           <div id="breaker-summary" class="breaker-card"></div>
-        </article>
-      </section>
+          <div class="ledger-columns">
+            <div>
+              <h3>Reservations</h3>
+              <div id="reservations"></div>
+            </div>
+            <div>
+              <h3>Receipts</h3>
+              <div id="receipts"></div>
+            </div>
+          </div>
+          <div class="ledger-columns">
+            <div>
+              <h3>Blocks</h3>
+              <div id="blocked-attempts"></div>
+            </div>
+            <div>
+              <h3>Audit</h3>
+              <div id="audit-log"></div>
+            </div>
+          </div>
+        </section>
+      </main>
 
-      <section class="panel">
+      <details class="panel preset-drawer">
+        <summary>Optional preset checks and system details</summary>
         <div class="section-head">
           <h2>Quick Policy Checks</h2>
           <p>Optional preset requests for fast verification; the live request form above is editable.</p>
@@ -155,29 +156,25 @@
           <aside id="scenario-detail" class="scenario-detail"></aside>
         </div>
         <div id="scenario-result" class="result-box" aria-live="polite"></div>
-      </section>
-
-      <section class="grid bottom-grid">
-        <article class="panel">
-          <h2>Reservations</h2>
-          <div id="reservations"></div>
-        </article>
-        <article class="panel">
-          <h2>Receipts</h2>
-          <div id="receipts"></div>
-        </article>
-      </section>
-
-      <section class="grid bottom-grid">
-        <article class="panel">
-          <h2>Blocked Attempts</h2>
-          <div id="blocked-attempts"></div>
-        </article>
-        <article class="panel">
-          <h2>Audit Log</h2>
-          <div id="audit-log"></div>
-        </article>
-      </section>
+        <div class="system-grid">
+          <article>
+            <h2>Payment Flow</h2>
+            <div id="flow-steps" class="flow-grid"></div>
+          </article>
+          <article>
+            <h2>Safety Checks</h2>
+            <div id="proof-strip" class="proof-grid"></div>
+          </article>
+          <article>
+            <h2>Policy</h2>
+            <div id="policy-summary" class="stat-list"></div>
+          </article>
+          <article>
+            <h2>Vault</h2>
+            <div id="storage-summary" class="stat-list"></div>
+          </article>
+        </div>
+      </details>
     </div>
     <script type="module" src="/app.js"></script>
   </body>

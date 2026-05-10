@@ -87,9 +87,9 @@ try {
   print("");
   print("Product flow:");
   print("1. Open the dashboard.");
-  print("2. Edit the Live Agent Request fields and click Send Agent Request.");
+  print("2. Edit the Live Agent Request fields and click Send Live Request.");
   print("3. Change price to 900 or recipient to merchant_rogue_sink to prove live blocking.");
-  print("4. Click Start Agent Run for the full retry/block/breaker sweep.");
+  print("4. Click Run Full Sweep for the full retry/block/breaker sweep.");
   print("5. Run npm run demo:devnet in a second terminal to show the Solana explorer link.");
   print("");
   print("Optional terminal proof after the dashboard:");

@@ -85,16 +85,20 @@ export async function runAgentRequest({
   agentToken = null,
   requestTimeoutMs = 900
 } = {}) {
+  const trace = [];
   const client = createSafePayClient({
     vaultUrl,
     runId,
     agentId,
     agentToken,
-    requestTimeoutMs
+    requestTimeoutMs,
+    onEvent(event) {
+      trace.push(event);
+    }
   });
 
   try {
-    return await runPaidRequest({
+    const result = await runPaidRequest({
       client,
       apiUrl,
       path,
@@ -106,10 +110,15 @@ export async function runAgentRequest({
         timeoutFirst
       }
     });
+    return {
+      ...result,
+      trace
+    };
   } catch (error) {
     if (!error.payload && error.details) {
       error.payload = error.details;
     }
+    error.trace = trace;
     throw error;
   }
 }

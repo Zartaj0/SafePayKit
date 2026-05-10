@@ -51,16 +51,16 @@ npm run demo
 
 Open the dashboard URL printed by the command. The top panel is editable: change
 route, price, recipient, run ID, idempotency key, or timeout behavior, then click
-`Send Agent Request`.
+`Send Live Request`.
 
 Useful live edits:
 
 - Set price to `125` and recipient to `merchant_demo_main` to approve and settle.
 - Set price to `900` to block above the per-request limit.
 - Set recipient to `merchant_rogue_sink` to block recipient drift.
-- Check timeout and reuse the same idempotency key to prove retry reuse.
+- Check timeout to prove the retry reuses the same reservation.
 
-Click `Start Agent Run` only when you want the full scripted control sweep.
+Click `Run Full Sweep` only when you want the full scripted control sweep.
 
 The button runs:
 
@@ -69,8 +69,8 @@ The button runs:
 3. price drift block before settlement
 4. breaker trip after repeated unsafe attempts
 
-The hero status, metrics, receipt list, blocked attempts, and breaker panel update
-live after the click.
+The live trace, metrics, receipt list, blocked attempts, and breaker panel update
+after each request.
 
 For a short CLI proof:
 

@@ -261,7 +261,7 @@ function renderDemoStatus(snapshot) {
     `
     : `
       <strong>Ready.</strong>
-      <span>Start an agent run to create live reservations, receipts, policy blocks, and breaker state.</span>
+      <span>Send a live request to create reservations, receipts, blocks, and retry evidence.</span>
     `;
 }
 
@@ -389,6 +389,9 @@ function renderScenarioCards() {
   for (const control of liveForm.querySelectorAll("input, textarea, button")) {
     control.disabled = Boolean(appState.runningScenario || appState.runningAgentRun || appState.runningLiveRequest);
   }
+  for (const control of document.querySelectorAll(".demo-presets button")) {
+    control.disabled = Boolean(appState.runningScenario || appState.runningAgentRun || appState.runningLiveRequest);
+  }
 }
 
 function renderLiveRequestResult() {
@@ -396,8 +399,8 @@ function renderLiveRequestResult() {
 
   if (appState.runningLiveRequest) {
     host.innerHTML = `
-      <strong>Sending request through SafePayKit...</strong>
-      <span>The provider will return a signed quote, then the vault will approve, reuse, or block it.</span>
+      <strong>Running live payment path...</strong>
+      <span>Agent request -> provider 402 quote -> vault authorization -> paid retry -> settlement or block.</span>
     `;
     return;
   }
@@ -442,6 +445,149 @@ function renderLiveRequestResult() {
       <pre>${rawJson}</pre>
     </details>
   `;
+}
+
+function traceTitle(event) {
+  switch (event.type) {
+    case "agent.request":
+      return "Agent called paid API without payment proof";
+    case "provider.quote":
+      return "Provider returned signed 402 quote";
+    case "vault.authorize.request":
+      return "Vault checked policy and budget";
+    case "vault.authorize.approved":
+      return event.decision === "reused"
+        ? "Vault reused existing reservation"
+        : "Vault authorized new reservation";
+    case "vault.authorize.blocked":
+      return "Vault blocked before settlement";
+    case "agent.retry_with_authorization":
+      return "Agent retried with vault authorization token";
+    case "network.timeout":
+      return "First paid response timed out";
+    case "provider.response":
+      return "Provider returned paid API response";
+    case "receipt.signed":
+      return "Vault signed settlement receipt";
+    default:
+      return humanizeCode(event.type);
+  }
+}
+
+function traceBody(event) {
+  switch (event.type) {
+    case "agent.request":
+      return `${event.method} ${new URL(event.url).pathname} as ${event.agentId}`;
+    case "provider.quote":
+      return `${formatMoney(event.amountMinor)} to ${event.recipient}; provider signature present: ${event.signedByProvider ? "yes" : "no"}`;
+    case "vault.authorize.request":
+      return `Policy check for run ${event.runId} and idempotency key ${event.idempotencyKey}`;
+    case "vault.authorize.approved":
+      return `${formatMoney(event.reservedAmountMinor)} reserved; short-lived auth token issued`;
+    case "vault.authorize.blocked":
+      return humanizeCode(event.code);
+    case "agent.retry_with_authorization":
+      return `Attempt ${event.attempt} used token ${truncateMiddle(event.tokenId, 10, 6)}`;
+    case "network.timeout":
+      return `Attempt ${event.attempt} timed out; same quote and idempotency key are reused`;
+    case "provider.response":
+      return `HTTP ${event.status}; provider verified authorization before responding`;
+    case "receipt.signed":
+      return `${formatMoney(event.amountMinor)} receipt ${truncateMiddle(event.receiptId, 10, 6)}`;
+    default:
+      return event.code ? humanizeCode(event.code) : "Event recorded";
+  }
+}
+
+function traceClass(event) {
+  if (event.type === "vault.authorize.blocked") {
+    return "blocked";
+  }
+  if (event.type === "network.timeout" || event.type === "vault.authorize.approved" && event.decision === "reused") {
+    return "retry";
+  }
+  if (event.type === "vault.authorize.approved" || event.type === "receipt.signed") {
+    return "approved";
+  }
+  return "";
+}
+
+function traceMeta(event) {
+  const entries = [];
+  for (const key of [
+    "quoteFingerprint",
+    "quoteId",
+    "reservationId",
+    "receiptId",
+    "tokenId",
+    "code"
+  ]) {
+    if (event[key]) {
+      entries.push(`${key}: ${truncateMiddle(event[key], 14, 8)}`);
+    }
+  }
+  return entries;
+}
+
+function renderExecutionTrace() {
+  const host = document.querySelector("#execution-trace");
+  if (appState.runningLiveRequest) {
+    host.innerHTML = `
+      <article class="trace-step retry">
+        <span class="trace-index">...</span>
+        <div>
+          <strong>Waiting for live events</strong>
+          <p>The trace will fill as the agent, provider, and vault exchange messages.</p>
+        </div>
+      </article>
+    `;
+    return;
+  }
+
+  const rawPayload = appState.liveResult?.payload ?? {};
+  const trace = [...(rawPayload.trace ?? rawPayload.response?.trace ?? [])];
+  const receipt = rawPayload.receipt ?? rawPayload.response?.receipt;
+  if (receipt && !trace.some((event) => event.type === "receipt.signed")) {
+    trace.push({
+      type: "receipt.signed",
+      at: receipt.settledAt,
+      receiptId: receipt.receiptId,
+      amountMinor: receipt.amountMinor
+    });
+  }
+
+  if (trace.length === 0) {
+    host.innerHTML = `
+      <article class="trace-step">
+        <span class="trace-index">0</span>
+        <div>
+          <strong>No request sent yet</strong>
+          <p>Send a live request to see each actual network and vault decision.</p>
+        </div>
+      </article>
+    `;
+    return;
+  }
+
+  host.innerHTML = trace
+    .map((event, index) => {
+      const meta = traceMeta(event);
+      return `
+        <article class="trace-step ${traceClass(event)}">
+          <span class="trace-index">${index + 1}</span>
+          <div>
+            <strong>${escapeHtml(traceTitle(event))}</strong>
+            <p>${escapeHtml(traceBody(event))}</p>
+            ${
+              meta.length > 0
+                ? `<div class="trace-meta">${meta.map((entry) => `<code>${escapeHtml(entry)}</code>`).join("")}</div>`
+                : ""
+            }
+          </div>
+        </article>
+      `;
+    })
+    .join("");
 }
 
 function renderScenarioDetail() {
@@ -552,7 +698,7 @@ function renderScenarioResult() {
       <article class="result-card">
         <div class="result-head">
           <span class="result-badge idle">Ready</span>
-          <strong>Start an agent run to see the control path.</strong>
+          <strong>Send a live request to see the control path.</strong>
         </div>
         <p>This panel explains what the vault approved, reused, blocked, or escalated.</p>
       </article>
@@ -653,15 +799,16 @@ async function refresh() {
   renderList("#audit-log", snapshot.auditLog, renderAuditEvent, "No audit events yet.");
   renderScenarioResult();
   renderLiveRequestResult();
+  renderExecutionTrace();
 }
 
-async function sendLiveAgentRequest(event) {
-  event.preventDefault();
+async function executeLiveAgentRequest() {
   const request = readLiveRequestForm();
   appState.runningLiveRequest = true;
   appState.liveResult = null;
   renderScenarioCards();
   renderLiveRequestResult();
+  renderExecutionTrace();
 
   try {
     const payload = await requestJson("/api/agent-request", {
@@ -711,6 +858,37 @@ async function sendLiveAgentRequest(event) {
   await refresh();
   renderScenarioCards();
   renderLiveRequestResult();
+  renderExecutionTrace();
+}
+
+async function sendLiveAgentRequest(event) {
+  event.preventDefault();
+  await executeLiveAgentRequest();
+}
+
+function applyLivePreset(kind) {
+  const route = document.querySelector("#request-route");
+  const amount = document.querySelector("#request-amount");
+  const recipient = document.querySelector("#request-recipient");
+  const timeout = document.querySelector("#request-timeout");
+
+  route.value = "/api/live-research";
+  recipient.value = "merchant_demo_main";
+  timeout.checked = false;
+
+  if (kind === "price") {
+    amount.value = "900";
+  } else if (kind === "recipient") {
+    amount.value = "125";
+    recipient.value = "merchant_rogue_sink";
+  } else if (kind === "timeout") {
+    amount.value = "125";
+    timeout.checked = true;
+  } else {
+    amount.value = "125";
+  }
+
+  populateLiveRequestIds();
 }
 
 async function resetConsole() {
@@ -857,12 +1035,30 @@ renderScenarioCards();
 renderScenarioDetail();
 renderScenarioResult();
 renderLiveRequestResult();
+renderExecutionTrace();
 
 document.querySelector("#agent-request-form").addEventListener("submit", sendLiveAgentRequest);
 document.querySelector("#randomize-request").addEventListener("click", () => {
   populateLiveRequestIds();
   appState.liveResult = null;
   renderLiveRequestResult();
+  renderExecutionTrace();
+});
+document.querySelector("#preset-safe").addEventListener("click", () => {
+  applyLivePreset("safe");
+  void executeLiveAgentRequest();
+});
+document.querySelector("#preset-price").addEventListener("click", () => {
+  applyLivePreset("price");
+  void executeLiveAgentRequest();
+});
+document.querySelector("#preset-recipient").addEventListener("click", () => {
+  applyLivePreset("recipient");
+  void executeLiveAgentRequest();
+});
+document.querySelector("#preset-timeout").addEventListener("click", () => {
+  applyLivePreset("timeout");
+  void executeLiveAgentRequest();
 });
 document.querySelector("#reset-console").addEventListener("click", resetConsole);
 document.querySelector("#reset-breaker").addEventListener("click", resetBreaker);
