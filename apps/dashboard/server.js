@@ -82,6 +82,7 @@ export function startDashboardServer({
         ),
         body: JSON.stringify({
           policy: {
+            allowedDomains: [new URL(apiUrl).host],
             allowedProviderKeys: [provider.providerPublicKey]
           }
         })

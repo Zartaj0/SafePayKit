@@ -19,12 +19,14 @@
         </div>
         <div class="hero-side">
           <div class="hero-note">
-            <span class="note-kicker">Submission angle</span>
-            <strong>Not the payment rail. The safety layer around it.</strong>
-            <p>Lead with timeout retry, signed receipts, breaker controls, and now persisted audit state.</p>
+            <span class="note-kicker">Presenter mode</span>
+            <strong>One run shows the complete safety flow.</strong>
+            <p>Normal payment, timeout retry reuse, price block, breaker trip, and signed receipts.</p>
           </div>
+          <div id="demo-status" class="demo-status" aria-live="polite"></div>
           <div class="hero-actions">
-            <button id="seed-demo" class="primary">Seed Demo Policy</button>
+            <button id="run-full-demo" class="primary">Run Full Demo</button>
+            <button id="seed-demo" class="secondary">Reset Demo</button>
             <button id="reset-breaker" class="secondary">Reset Breaker</button>
           </div>
         </div>

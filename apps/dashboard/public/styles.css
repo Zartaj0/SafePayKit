@@ -207,6 +207,25 @@ button:disabled {
   color: var(--ink);
 }
 
+.demo-status {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid rgba(15, 109, 87, 0.18);
+  border-radius: 20px;
+  background: rgba(15, 109, 87, 0.08);
+}
+
+.demo-status strong {
+  font-size: 0.95rem;
+}
+
+.demo-status span {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
 .grid {
   display: grid;
   gap: 18px;

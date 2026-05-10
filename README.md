@@ -49,12 +49,17 @@ Start the clean presenter demo:
 npm run demo
 ```
 
-Open `http://127.0.0.1:4300`, then run:
+Open the dashboard URL printed by the command, then click `Run Full Demo`.
 
-1. `Normal payment`
-2. `Timeout retry`
-3. `Price drift block`
-4. `Breaker trip`
+The button runs:
+
+1. normal paid API call
+2. timeout retry with reservation reuse
+3. price drift block before settlement
+4. breaker trip after repeated unsafe attempts
+
+The hero status, metrics, receipt list, blocked attempts, and breaker panel update
+live after the click.
 
 For a short CLI proof you can show on video:
 

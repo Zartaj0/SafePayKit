@@ -68,6 +68,7 @@ const JUDGE_ORDER = ["normal", "timeout", "price", "breaker"];
 const appState = {
   selectedScenario: "timeout",
   runningScenario: null,
+  runningFullDemo: false,
   snapshot: null,
   lastResult: null
 };
@@ -199,6 +200,39 @@ function renderProofStrip(snapshot) {
     .join("");
 }
 
+function renderDemoStatus(snapshot) {
+  const host = document.querySelector("#demo-status");
+  if (!snapshot?.metrics) {
+    host.innerHTML = `
+      <strong>Demo is booting.</strong>
+      <span>Waiting for vault state.</span>
+    `;
+    return;
+  }
+
+  if (appState.runningFullDemo) {
+    host.innerHTML = `
+      <strong>Running full demo...</strong>
+      <span>Executing payment, retry reuse, policy block, and breaker scenarios.</span>
+    `;
+    return;
+  }
+
+  const metrics = snapshot.metrics;
+  const complete =
+    metrics.receiptCount >= 2 && metrics.reusedCount >= 1 && snapshot.breaker?.tripped;
+
+  host.innerHTML = complete
+    ? `
+      <strong>Full demo complete.</strong>
+      <span>${metrics.receiptCount} receipts, ${metrics.reusedCount} retry reuse, ${metrics.blockedCount} blocked attempts, breaker tripped.</span>
+    `
+    : `
+      <strong>Ready for recording.</strong>
+      <span>Click Run Full Demo to generate live reservations, receipts, blocks, and breaker state.</span>
+    `;
+}
+
 function renderStorage(snapshot) {
   const host = document.querySelector("#storage-summary");
   if (!snapshot) {
@@ -306,8 +340,18 @@ function renderScenarioCards() {
     const isRunning = scenario === appState.runningScenario;
     button.classList.toggle("active", isActive);
     button.classList.toggle("running", isRunning);
-    button.disabled = Boolean(appState.runningScenario);
+    button.disabled = Boolean(appState.runningScenario || appState.runningFullDemo);
   }
+
+  document.querySelector("#run-full-demo").disabled = Boolean(
+    appState.runningScenario || appState.runningFullDemo
+  );
+  document.querySelector("#seed-demo").disabled = Boolean(
+    appState.runningScenario || appState.runningFullDemo
+  );
+  document.querySelector("#reset-breaker").disabled = Boolean(
+    appState.runningScenario || appState.runningFullDemo
+  );
 }
 
 function renderScenarioDetail() {
@@ -395,6 +439,19 @@ function renderScenarioResult() {
           <strong>${escapeHtml(scenario.title)}</strong>
         </div>
         <p>Executing the scenario and refreshing live state.</p>
+      </article>
+    `;
+    return;
+  }
+
+  if (appState.runningFullDemo) {
+    host.innerHTML = `
+      <article class="result-card">
+        <div class="result-head">
+          <span class="result-badge pending">Running</span>
+          <strong>Full demo</strong>
+        </div>
+        <p>Running normal payment, timeout retry, price block, and breaker trip.</p>
       </article>
     `;
     return;
@@ -489,6 +546,7 @@ function renderScenarioResult() {
 async function refresh() {
   const snapshot = await requestJson(stateRoute);
   appState.snapshot = snapshot;
+  renderDemoStatus(snapshot);
   renderProofStrip(snapshot);
   renderStorage(snapshot);
   renderPolicy(snapshot.policy);
@@ -560,6 +618,69 @@ async function runScenario(scenario) {
   renderScenarioDetail();
 }
 
+async function runFullDemo() {
+  appState.runningFullDemo = true;
+  appState.selectedScenario = "normal";
+  appState.lastResult = null;
+  renderScenarioCards();
+  renderScenarioDetail();
+  renderScenarioResult();
+
+  try {
+    await seedDemo();
+
+    const steps = ["normal", "timeout", "price", "breaker"];
+    const results = [];
+
+    for (const step of steps) {
+      appState.selectedScenario = step;
+      renderScenarioCards();
+      renderScenarioDetail();
+
+      try {
+        const payload = await requestJson(`/api/scenarios/${step}`, {
+          method: "POST",
+          body: JSON.stringify({})
+        });
+        results.push({
+          step,
+          status: "success",
+          payload: payload.result
+        });
+      } catch (error) {
+        results.push({
+          step,
+          status: "blocked",
+          payload: error.payload ?? { message: error.message }
+        });
+      }
+
+      await refresh();
+    }
+
+    appState.lastResult = {
+      status: "info",
+      scenario: "timeout",
+      payload: {
+        message: "Full demo complete. The live panels now show the proof.",
+        facts: [
+          "Normal payment settled once",
+          "Timeout retry reused one reservation",
+          "Price drift was blocked before settlement",
+          "Repeated unsafe attempts tripped the breaker"
+        ],
+        results
+      }
+    };
+  } finally {
+    appState.runningFullDemo = false;
+  }
+
+  await refresh();
+  renderScenarioCards();
+  renderScenarioDetail();
+}
+
 async function resetBreaker() {
   await requestJson("/api/breaker/reset", {
     method: "POST",
@@ -587,6 +708,7 @@ renderScenarioResult();
 
 document.querySelector("#seed-demo").addEventListener("click", seedDemo);
 document.querySelector("#reset-breaker").addEventListener("click", resetBreaker);
+document.querySelector("#run-full-demo").addEventListener("click", runFullDemo);
 
 for (const button of document.querySelectorAll("[data-scenario]")) {
   button.addEventListener("click", () => {

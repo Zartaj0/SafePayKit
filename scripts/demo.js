@@ -8,11 +8,12 @@ const rootDir = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const adminToken = "demo-admin-token";
 const agentToken = "demo-agent-token";
 const providerToken = "demo-provider-token";
-const vaultPort = Number(process.env.SAFEPAY_VAULT_PORT ?? 4100);
-const apiPort = Number(process.env.SAFEPAY_API_PORT ?? 4200);
-const dashboardPort = Number(process.env.SAFEPAY_DASHBOARD_PORT ?? 4300);
+const vaultPort = Number(process.env.SAFEPAY_VAULT_PORT ?? 0);
+const apiPort = Number(process.env.SAFEPAY_API_PORT ?? 0);
+const dashboardPort = Number(process.env.SAFEPAY_DASHBOARD_PORT ?? 0);
 const storeFile =
-  process.env.SAFEPAY_STORE_FILE ?? path.join(rootDir, "tmp", "safepaykit-demo.json");
+  process.env.SAFEPAY_STORE_FILE ??
+  path.join(rootDir, "tmp", `safepaykit-demo-${Date.now()}.json`);
 
 function print(message = "") {
   process.stdout.write(`${message}\n`);
@@ -82,13 +83,13 @@ try {
   print("SafePayKit presenter demo is ready.");
   print("");
   print(`Dashboard: ${dashboardUrl}`);
+  print(`Fresh state file: ${storeFile}`);
   print("");
   print("Video flow:");
   print("1. Open the dashboard.");
-  print("2. Run Normal payment.");
-  print("3. Run Timeout retry: same idempotency key, one reservation, one settlement.");
-  print("4. Run Price drift block: unsafe quote blocked before settlement.");
-  print("5. Run Breaker trip: repeated anomalies trip the breaker.");
+  print("2. Click Run Full Demo.");
+  print("3. Point to the metrics, receipts, blocked attempts, and breaker panels.");
+  print("4. Run npm run demo:devnet in a second terminal to show the Solana explorer link.");
   print("");
   print("Optional terminal proof after the dashboard:");
   print("npm run demo:proof");
