@@ -38,8 +38,8 @@ logs, and evidence verification.
   logs, and vault signer identity.
 - Independent conformance proof for quote signatures, receipt signatures, retry
   reuse, policy blocks, and Solana Memo-compatible receipt anchor payloads.
-- Optional devnet anchor command that sends a verified receipt hash as a real
-  Solana Memo transaction.
+- Real devnet settlement command that pays a separate merchant address and
+  includes the receipt anchor memo in the Solana transaction.
 
 ## Run Locally
 
@@ -78,14 +78,15 @@ For a short CLI proof:
 npm run demo:proof
 ```
 
-For a real devnet anchor using `DEVNET_PRIVATE_KEY` from `.env`:
+For real devnet settlement using `DEVNET_PRIVATE_KEY` from `.env`:
 
 ```bash
-npm run demo:devnet
+npm run demo:real
 ```
 
-This creates a verified local receipt, derives `safepay:v0:<hash>`, sends a
-Solana devnet Memo transaction, and prints the explorer URL.
+This approves one safe paid API call, proves one unsafe quote is blocked before
+settlement, sends a real Solana devnet transfer to a separate merchant address
+with `safepay:v0:<hash>` in the memo, and prints the explorer URL.
 
 For the full machine-checkable report:
 
@@ -113,7 +114,8 @@ with one retry reuse, and `conformance` prints `"ok": true`.
 
 - Local reference implementation for x402 / Pay.sh-style flows.
 - The local console uses a mock paid API provider and vault service.
-- `npm run demo:devnet` submits the receipt anchor memo to Solana devnet.
+- `npm run demo:real` submits a real Solana devnet transfer with the receipt
+  anchor memo.
 - Production deployments should replace local auth, storage, and settlement
   adapters.
 

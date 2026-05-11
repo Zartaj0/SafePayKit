@@ -13,7 +13,8 @@ import { startVaultServer } from "../packages/vault-service/src/index.js";
 
 const execFileAsync = promisify(execFile);
 const DEVNET_URL = process.env.SOLANA_RPC_URL ?? "https://api.devnet.solana.com";
-const TRANSFER_AMOUNT_SOL = process.env.SAFEPAY_ANCHOR_TRANSFER_SOL ?? "0.000001";
+const TRANSFER_AMOUNT_SOL =
+  process.env.SAFEPAY_SETTLEMENT_SOL ?? process.env.SAFEPAY_ANCHOR_TRANSFER_SOL ?? "0.001";
 
 const adminToken = "devnet-admin-token";
 const agentToken = "devnet-agent-token";
@@ -148,6 +149,24 @@ async function createTempKeypairFile() {
   return filePath;
 }
 
+async function createTempGeneratedKeypairFile(prefix) {
+  const filePath = path.join(
+    os.tmpdir(),
+    `safepaykit-${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}.json`
+  );
+
+  await solanaKeygen([
+    "new",
+    "--silent",
+    "--no-bip39-passphrase",
+    "--force",
+    "--outfile",
+    filePath
+  ]);
+  await fs.chmod(filePath, 0o600);
+  return filePath;
+}
+
 async function solana(args) {
   const { stdout, stderr } = await execFileAsync("solana", args, {
     maxBuffer: 1024 * 1024
@@ -219,6 +238,18 @@ async function buildVerifiedReceiptEvidence() {
       agentToken,
       adminToken
     });
+    let blockedCode = null;
+    try {
+      await runScenario({
+        scenario: "price",
+        vaultUrl,
+        apiUrl,
+        agentToken,
+        adminToken
+      });
+    } catch (error) {
+      blockedCode = error.payload?.code ?? error.details?.code ?? error.message;
+    }
     const state = await fetch(`${vaultUrl}/state`, {
       headers: {
         "x-safepay-admin-token": adminToken
@@ -239,8 +270,11 @@ async function buildVerifiedReceiptEvidence() {
     if (!evidence.ok) {
       throw new Error("local receipt evidence did not verify");
     }
+    if (blockedCode !== "per_request_limit_exceeded") {
+      throw new Error("blocked settlement proof did not fail as expected");
+    }
 
-    return { receipt, reservation, anchor };
+    return { receipt, reservation, anchor, blockedCode };
   } finally {
     await new Promise((resolve) => vault.server.close(resolve));
     await new Promise((resolve) => api.server.close(resolve));
@@ -248,14 +282,17 @@ async function buildVerifiedReceiptEvidence() {
 }
 
 async function main() {
-  print("SafePayKit devnet anchor");
-  print("Creates a verified local receipt, then anchors its hash in a real devnet Memo transaction.");
+  print("SafePayKit real devnet settlement");
+  print("Approves one paid API call, blocks one unsafe quote, then sends a real devnet transfer for the approved receipt.");
   print("");
 
   const keypairFile = await createTempKeypairFile();
+  const merchantKeypairFile = await createTempGeneratedKeypairFile("merchant");
   try {
     const publicKey = await solanaKeygen(["pubkey", keypairFile]);
+    const merchantPublicKey = await solanaKeygen(["pubkey", merchantKeypairFile]);
     print(`Devnet signer: ${publicKey}`);
+    print(`Devnet merchant: ${merchantPublicKey}`);
 
     if (process.env.SAFEPAY_SKIP_AIRDROP !== "1") {
       try {
@@ -266,14 +303,15 @@ async function main() {
       }
     }
 
-    const { receipt, reservation, anchor } = await buildVerifiedReceiptEvidence();
+    const { receipt, reservation, anchor, blockedCode } = await buildVerifiedReceiptEvidence();
     print(`PASS verified receipt ${receipt.receiptId}`);
     print(`PASS reservation ${reservation.reservationId}`);
+    print(`PASS unsafe quote blocked before settlement (${blockedCode})`);
     print(`PASS anchor memo ${anchor.memo}`);
 
     const raw = await solana([
       "transfer",
-      publicKey,
+      merchantPublicKey,
       TRANSFER_AMOUNT_SOL,
       "--keypair",
       keypairFile,
@@ -292,12 +330,14 @@ async function main() {
     const parsed = JSON.parse(raw);
     const signature = parsed.signature;
 
-    print(`PASS devnet memo transaction ${signature}`);
+    print(`PASS real devnet transfer ${TRANSFER_AMOUNT_SOL} SOL to merchant ${merchantPublicKey}`);
+    print(`PASS receipt memo included in transaction ${signature}`);
     print(`Explorer: https://explorer.solana.com/tx/${signature}?cluster=devnet`);
     print("");
-    print("Devnet anchor complete.");
+    print("Real devnet settlement complete.");
   } finally {
     await fs.rm(keypairFile, { force: true });
+    await fs.rm(merchantKeypairFile, { force: true });
   }
 }
 
