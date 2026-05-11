@@ -3,6 +3,14 @@
 **Open safety rails for retry-safe, policy-controlled x402 / Pay.sh-style agent
 API spend on Solana.**
 
+## Status
+
+SafePayKit is a concept/reference prototype. It is not currently used in
+production, it was not submitted to a hackathon, and it should not be treated as
+a live payments product. The repository is kept public as an implementation
+sketch for agent-spend safety semantics: policy checks, retry-safe reservations,
+signed receipts, audit logs, and optional Solana devnet proof.
+
 SafePayKit is a reference implementation for one narrow question:
 
 > How can an autonomous agent pay per request without holding raw spend authority,

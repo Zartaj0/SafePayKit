@@ -4,6 +4,7 @@ node_modules
 coverage
 *.log
 tmp
+memory
 .env
 .env.*
 !.env.example
