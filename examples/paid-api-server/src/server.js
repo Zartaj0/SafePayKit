@@ -5,6 +5,7 @@ import {
   fingerprintQuote,
   parseJsonSafely
 } from "../../../packages/policy-schema/src/index.js";
+import { callLlm, hasLlmProvider, resolveLlmConfig } from "../../../packages/llm-client/src/index.js";
 
 function sendJson(response, statusCode, payload) {
   response.writeHead(statusCode, {
@@ -113,6 +114,8 @@ export function startPaidApiServer({
 } = {}) {
   const cachedResponses = {};
   const timeoutOnce = new Set();
+  const llmConfig = resolveLlmConfig(process.env);
+  const aiEnabled = hasLlmProvider(llmConfig);
 
   const server = http.createServer(async (request, response) => {
     if (request.method === "OPTIONS") {
@@ -123,7 +126,7 @@ export function startPaidApiServer({
     const url = new URL(request.url, `http://${request.headers.host ?? "127.0.0.1"}`);
 
     if (request.method === "GET" && url.pathname === "/health") {
-      sendJson(response, 200, { ok: true, service: "paid-api-server" });
+      sendJson(response, 200, { ok: true, service: "paid-api-server", aiEnabled });
       return;
     }
 
@@ -132,7 +135,8 @@ export function startPaidApiServer({
         ok: true,
         providerId,
         providerPublicKey: providerKeyPair.publicKeyPem,
-        quoteSignatureScheme: "ed25519:quote-signature-payload-v0"
+        quoteSignatureScheme: "ed25519:quote-signature-payload-v0",
+        aiEnabled
       });
       return;
     }
@@ -187,6 +191,7 @@ export function startPaidApiServer({
     }
 
     const { reservation } = verification.data;
+
     if (cachedResponses[reservation.reservationId]) {
       sendJson(response, 200, cachedResponses[reservation.reservationId]);
       return;
@@ -206,16 +211,34 @@ export function startPaidApiServer({
       return;
     }
 
+    const taskText = body.task || scenario.resource;
+    const taskLabel = String(taskText || "research request").trim().slice(0, 120);
+
+    let aiText = null;
+    let aiProvider = null;
+    let aiModel = null;
+
+    if (aiEnabled) {
+      const researchPrompt = `You are a paid research API used by autonomous AI agents on the Solana network. A payment has been authorized and settled for this research task. Respond in exactly 2-3 confident, factual sentences:\n\n${taskLabel}`;
+      const llmResult = await callLlm(researchPrompt, llmConfig, { maxTokens: 220 });
+      if (llmResult?.text) {
+        aiText = llmResult.text;
+        aiProvider = llmResult.provider;
+        aiModel = llmResult.model;
+      }
+    }
+
     const payload = {
       ok: true,
       scenario: scenario.name,
       reservationId: reservation.reservationId,
       receipt: settlement.data.receipt,
       result: {
-        summary: `Paid API call completed for ${body.task ?? "research task"}`,
-        citationCount: 3,
-        confidence: "high",
-        answerPreview: "SafePayKit reserved budget, settled once, and kept the retry idempotent."
+        summary: taskLabel,
+        answerPreview: aiText || `Research completed for: "${taskLabel}". Configure at least one LLM provider key (GEMINI_API_KEY, OPENROUTER, NVIDIA, MISTRAL, ZERO_G_PRIVATE_KEY, or OPENCODE) to enable real AI responses.`,
+        aiGenerated: Boolean(aiText),
+        aiProvider,
+        aiModel
       }
     };
 
@@ -236,13 +259,14 @@ export function startPaidApiServer({
     server.listen(port, "127.0.0.1", () => {
       const address = server.address();
       logger.log(
-        `[paid-api-server] listening on http://127.0.0.1:${address.port}`
+        `[paid-api-server] listening on http://127.0.0.1:${address.port} (ai: ${aiEnabled ? "enabled" : "disabled"})`
       );
       resolve({
         server,
         port: address.port,
         providerId,
-        providerPublicKey: providerKeyPair.publicKeyPem
+        providerPublicKey: providerKeyPair.publicKeyPem,
+        aiEnabled
       });
     });
   });

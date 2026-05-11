@@ -1,4 +1,7 @@
 import { createSafePayClient } from "../../../packages/x402-client/src/index.js";
+import { callLlm, hasLlmProvider, resolveLlmConfig } from "../../../packages/llm-client/src/index.js";
+
+const _llmConfig = resolveLlmConfig(process.env);
 
 const SCENARIO_MAP = {
   normal: {
@@ -40,6 +43,24 @@ const SCENARIO_MAP = {
     type: "breaker"
   }
 };
+
+async function agentReasoning(task, emit) {
+  if (!task || !hasLlmProvider(_llmConfig)) return;
+
+  try {
+    const prompt = `You are an autonomous AI agent that must pay per API call. In one sentence, state what you need from the research API for this task and why you are authorizing spend:\n\nTask: ${String(task).trim().slice(0, 300)}`;
+    const result = await callLlm(prompt, _llmConfig, { maxTokens: 90 });
+    if (result?.text) {
+      emit("agent.reasoning", {
+        thought: result.text.trim(),
+        provider: result.provider,
+        model: result.model
+      });
+    }
+  } catch {
+    // Skip if all providers unavailable; the payment flow continues unchanged
+  }
+}
 
 async function runPaidRequest({
   client,
@@ -96,6 +117,8 @@ export async function runAgentRequest({
       trace.push(event);
     }
   });
+
+  await agentReasoning(task, (type, details) => trace.push({ type, at: new Date().toISOString(), ...details }));
 
   try {
     const result = await runPaidRequest({
@@ -174,10 +197,9 @@ async function runBreakerScenario({
     breaker: state.breaker,
     result: {
       summary: "Repeated blocked attempts escalated into a breaker trip.",
-      citationCount: 0,
-      confidence: state.breaker.tripped ? "high" : "low",
-      answerPreview:
-        "SafePayKit moved from single-attempt policy blocks to a circuit-breaker response."
+      answerPreview: "SafePayKit moved from single-attempt policy blocks to a circuit-breaker response. Subsequent agent calls are now blocked until the breaker is manually reset.",
+      aiGenerated: false,
+      model: null
     }
   };
 }

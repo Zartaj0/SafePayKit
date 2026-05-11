@@ -321,6 +321,22 @@ function renderPolicy(policy) {
     .join("");
 }
 
+function renderBudgetBar(label, usedMinor, limitMinor) {
+  const pct = limitMinor > 0 ? Math.min(100, (usedMinor / limitMinor) * 100) : 0;
+  const danger = pct >= 80;
+  return `
+    <div class="budget-bar-row">
+      <div class="budget-bar-label">
+        <span>${escapeHtml(label)}</span>
+        <span>${escapeHtml(formatMoney(usedMinor))} / ${escapeHtml(formatMoney(limitMinor))}</span>
+      </div>
+      <div class="budget-bar-track">
+        <div class="budget-bar-fill ${danger ? "danger" : ""}" style="width:${pct.toFixed(1)}%"></div>
+      </div>
+    </div>
+  `;
+}
+
 function renderMetrics(metrics) {
   const host = document.querySelector("#metric-summary");
   if (!metrics) {
@@ -328,6 +344,7 @@ function renderMetrics(metrics) {
     return;
   }
 
+  const policy = appState.snapshot?.policy;
   const cards = [
     ["Reservations", metrics.reservationCount],
     ["Retry reuses", metrics.reusedCount],
@@ -335,16 +352,23 @@ function renderMetrics(metrics) {
     ["Blocked", metrics.blockedCount]
   ];
 
+  const budgetBars = policy
+    ? `<div class="budget-bars">
+        ${renderBudgetBar("Run budget", metrics.totalSettledMinor + metrics.totalReservedMinor, policy.perRunBudgetMinor)}
+        ${renderBudgetBar("Daily budget", metrics.totalSettledMinor + metrics.totalReservedMinor, policy.dailyBudgetMinor)}
+      </div>`
+    : "";
+
   host.innerHTML = cards
     .map(
       ([label, value]) => `
         <div class="metric-card">
           <span>${escapeHtml(label)}</span>
-          <strong>${escapeHtml(value)}</strong>
+          <strong>${escapeHtml(String(value))}</strong>
         </div>
       `
     )
-    .join("");
+    .join("") + budgetBars;
 }
 
 function renderBreaker(breaker) {
@@ -416,6 +440,7 @@ function renderLiveRequestResult() {
   const rawPayload = appState.liveResult.payload ?? {};
   const rawJson = escapeHtml(JSON.stringify(rawPayload, null, 2));
   const isSuccess = appState.liveResult.status === "success";
+  const aiResult = rawPayload.result ?? rawPayload.response?.result;
   const facts = isSuccess
     ? [
         rawPayload.receipt
@@ -434,9 +459,17 @@ function renderLiveRequestResult() {
         `Price: ${formatMoney(appState.liveResult.request?.amountMinor ?? 0)}`
       ];
 
+  const aiBlock = isSuccess && aiResult?.answerPreview
+    ? `<div class="ai-answer">
+        <span class="ai-answer-badge">${aiResult.aiGenerated ? escapeHtml(aiResult.aiProvider ?? "AI") : "Simulated"}</span>
+        <p>${escapeHtml(aiResult.answerPreview)}</p>
+      </div>`
+    : "";
+
   host.innerHTML = `
     <strong>${isSuccess ? "Approved and settled." : "Blocked before settlement."}</strong>
     <span>${escapeHtml(appState.liveResult.summary)}</span>
+    ${aiBlock}
     <div class="live-result-facts">
       ${facts.map((fact) => `<span>${escapeHtml(fact)}</span>`).join("")}
     </div>
@@ -449,6 +482,8 @@ function renderLiveRequestResult() {
 
 function traceTitle(event) {
   switch (event.type) {
+    case "agent.reasoning":
+      return "Agent decided to authorize spend";
     case "agent.request":
       return "Agent called paid API without payment proof";
     case "provider.quote":
@@ -476,6 +511,8 @@ function traceTitle(event) {
 
 function traceBody(event) {
   switch (event.type) {
+    case "agent.reasoning":
+      return event.thought || "Agent analyzed the task and chose to authorize payment for a research API call.";
     case "agent.request":
       return `${event.method} ${new URL(event.url).pathname} as ${event.agentId}`;
     case "provider.quote":
@@ -500,10 +537,13 @@ function traceBody(event) {
 }
 
 function traceClass(event) {
+  if (event.type === "agent.reasoning") {
+    return "reasoning";
+  }
   if (event.type === "vault.authorize.blocked") {
     return "blocked";
   }
-  if (event.type === "network.timeout" || event.type === "vault.authorize.approved" && event.decision === "reused") {
+  if (event.type === "network.timeout" || (event.type === "vault.authorize.approved" && event.decision === "reused")) {
     return "retry";
   }
   if (event.type === "vault.authorize.approved" || event.type === "receipt.signed") {
@@ -514,6 +554,11 @@ function traceClass(event) {
 
 function traceMeta(event) {
   const entries = [];
+  if (event.type === "agent.reasoning" && event.provider) {
+    entries.push(`provider: ${event.provider}`);
+    if (event.model) entries.push(`model: ${truncateMiddle(event.model, 24, 0)}`);
+    return entries;
+  }
   for (const key of [
     "quoteFingerprint",
     "quoteId",
@@ -722,7 +767,18 @@ function renderScenarioResult() {
   let summary = "";
   let facts = [];
 
+  let aiAnswerBlock = "";
+
   if (appState.lastResult.status === "success") {
+    const aiResult = rawPayload.result;
+    if (aiResult?.answerPreview && appState.lastResult.scenario !== "breaker") {
+      const badge = aiResult.aiGenerated ? escapeHtml(aiResult.aiProvider ?? "AI") : "Simulated";
+      aiAnswerBlock = `<div class="ai-answer" style="margin-top:12px">
+        <span class="ai-answer-badge">${badge}</span>
+        <p>${escapeHtml(aiResult.answerPreview)}</p>
+      </div>`;
+    }
+
     if (appState.lastResult.scenario === "breaker") {
       summary = "Breaker protection escalated after repeated blocked attempts.";
       facts = [
@@ -768,6 +824,7 @@ function renderScenarioResult() {
         <strong>${escapeHtml(scenario.title)}</strong>
       </div>
       <p>${escapeHtml(summary)}</p>
+      ${aiAnswerBlock}
       <div class="result-facts">
         ${facts.map((fact) => `<span>${escapeHtml(fact)}</span>`).join("")}
       </div>
